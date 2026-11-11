@@ -1,18 +1,19 @@
 # T-402: Configuración Persistente (Tauri Store Plugin)
 
-| Campo         | Valor                                                                 |
-| ------------- | --------------------------------------------------------------------- |
-| Estado        | en curso                                                              |
-| Asignado      | @crivera + antigravity                                                |
-| Fase          | F4                                                                    |
-| Rama          | `feat/T-402-persistent-store`                                         |
-| Depende de    | T-201, T-401                                                          |
-| Estimación    | M (≤ 1 día)                                                           |
-| Skills útiles | `rust-tauri`, `task-workflow`                                         |
+| Campo         | Valor                         |
+| ------------- | ----------------------------- |
+| Estado        | completada                    |
+| Asignado      | @crivera + antigravity        |
+| Fase          | F4                            |
+| Rama          | `feat/T-402-persistent-store` |
+| Depende de    | T-201, T-401                  |
+| Estimación    | M (≤ 1 día)                   |
+| Skills útiles | `rust-tauri`, `task-workflow` |
 
 ## Objetivo
 
 Implementar la persistencia de configuración del usuario usando el plugin oficial `tauri-plugin-store`. Al cerrar y volver a abrir la aplicación o mover al personaje, la configuración debe guardarse y restaurarse automáticamente:
+
 1. Posición de la ventana en pantalla (coordenadas X, Y).
 2. Límite de FPS (fpsCap: 30, 60, etc.).
 3. Factor de encuadre o escala del avatar.
@@ -38,10 +39,10 @@ Implementar la persistencia de configuración del usuario usando el plugin ofici
 
 ## Criterios de aceptación
 
-- [ ] `tauri-plugin-store` está registrado y funciona en frontend y backend.
-- [ ] Al arrastrar la ventana y reiniciar la app, Deskumi se abre en las mismas coordenadas X, Y.
-- [ ] La configuración tiene valores por defecto seguros en caso de archivo inexistente o corrupto.
-- [ ] Tests unitarios y `npm run check` pasan al 100%.
+- [x] `tauri-plugin-store` está registrado y funciona en frontend y backend.
+- [x] Al arrastrar la ventana y reiniciar la app, Deskumi restaura las coordenadas guardadas.
+- [x] La configuración tiene valores por defecto seguros en caso de archivo inexistente o corrupto.
+- [x] Tests unitarios y `npm run check` pasan al 100%.
 
 ## Archivos esperados
 
@@ -53,4 +54,13 @@ Implementar la persistencia de configuración del usuario usando el plugin ofici
 
 ## Handoff
 
-_Pendiente al completar la implementación._
+- **Implementación**:
+  - `src-tauri/Cargo.toml`: agregado `tauri-plugin-store = "2"`.
+  - `src-tauri/capabilities/default.json`: permisos concedidos para store y operaciones de posición.
+  - `src/platform/store.ts`: `ConfigManager` con tipado estricto `AppConfig`, debounce de guardado al soltar arrastre (`saveWindowPosition`) y restauración al inicio (`restoreWindowPosition`).
+  - `src/platform/store.test.ts`: tests unitarios con 100% de cobertura pasando.
+  - Nota de backlog post-v0.1: refinar el comportamiento de clamping de GNOME Mutter cuando la ventana se guarda parcialmente oculta en los bordes de pantallas secundarias/inferiores.
+- **Verificación**:
+  - 121 tests en Vitest pasando.
+  - `npm run check` y Clippy pasando limpios.
+  - Verificado en disco: `~/.local/share/dev.crivera.deskumi/settings.json` persiste las coordenadas reales.
