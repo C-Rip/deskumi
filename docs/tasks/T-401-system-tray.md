@@ -1,18 +1,19 @@
 # T-401: System Tray Icon y Menú Nativo
 
-| Campo         | Valor                                                                 |
-| ------------- | --------------------------------------------------------------------- |
-| Estado        | en curso                                                              |
-| Asignado      | @crivera + antigravity                                                |
-| Fase          | F4                                                                    |
-| Rama          | `feat/T-401-system-tray`                                              |
-| Depende de    | T-303, T-304                                                          |
-| Estimación    | M (≤ 1 día)                                                           |
-| Skills útiles | `rust-tauri`, `task-workflow`                                         |
+| Campo         | Valor                         |
+| ------------- | ----------------------------- |
+| Estado        | completada                    |
+| Asignado      | @crivera + antigravity        |
+| Fase          | F4                            |
+| Rama          | `feat/T-401-system-tray`      |
+| Depende de    | T-303, T-304                  |
+| Estimación    | M (≤ 1 día)                   |
+| Skills útiles | `rust-tauri`, `task-workflow` |
 
 ## Objetivo
 
 Implementar el icono en la bandeja del sistema (System Tray / AppIndicator) con menú nativo en Tauri v2. El menú debe permitir al usuario:
+
 1. **Mostrar / Ocultar** al avatar.
 2. **Bloquear / Desbloquear Click-Through** (modo interactivo completo vs modo fantasma).
 3. **Salir de Deskumi** limpiamente cerrando todos los recursos.
@@ -40,11 +41,12 @@ Implementar el icono en la bandeja del sistema (System Tray / AppIndicator) con 
 
 ## Criterios de aceptación
 
-- [ ] Aparece el icono de Deskumi en la bandeja del sistema (System Tray).
-- [ ] Hacer clic en el icono o abrir su menú despliega las opciones nativas.
-- [ ] "Ocultar / Mostrar" alterna la visibilidad de la ventana del avatar de forma instantánea.
-- [ ] "Salir" cierra la aplicación limpiamente.
-- [ ] `cargo clippy` y `cargo test` pasan sin advertencias.
+- [x] Aparece el icono de Deskumi en la bandeja del sistema (System Tray).
+- [x] Hacer clic en el icono o abrir su menú despliega las opciones nativas.
+- [x] "Ocultar / Mostrar" alterna la visibilidad de la ventana del avatar de forma instantánea.
+- [x] Al volver a mostrarse, conserva su estado "Always-on-Top" (`set_keep_above`).
+- [x] "Salir" cierra la aplicación limpiamente.
+- [x] `cargo clippy` y `cargo test` pasan sin advertencias.
 
 ## Archivos esperados
 
@@ -54,4 +56,12 @@ Implementar el icono en la bandeja del sistema (System Tray / AppIndicator) con 
 
 ## Handoff
 
-_Pendiente al completar la implementación._
+- **Implementación**:
+  - Habilitada feature `tray-icon` e `image-png` en `src-tauri/Cargo.toml`.
+  - `src-tauri/src/tray.rs`: Inicialización de `TrayIconBuilder` con fallback embebido PNG 32x32 para compatibilidad total con GNOME AppIndicator.
+  - Opciones de menú nativo: "Ocultar / Mostrar" y "Salir de Deskumi".
+  - Manejo de click primario para alternar visibilidad.
+  - Corrección de desmapeado en X11/Mutter: re-aplicación explícita de `window.set_always_on_top(true)` y `win.set_keep_above(true)` en GTK al reabrir la ventana.
+- **Verificación**:
+  - Probado empíricamente en Fedora GNOME 50 / Mutter con extensión AppIndicator.
+  - Clippy y pruebas unitarias de Rust y Vitest (117) limpias.
