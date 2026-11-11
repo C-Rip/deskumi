@@ -63,6 +63,10 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
             if is_visible {
                 let _ = window.hide();
             } else {
+                // When unhiding, explicitly restore position if it was shifted by the window manager
+                if let Ok(pos) = window.outer_position() {
+                    let _ = window.set_position(tauri::Position::Physical(pos));
+                }
                 let _ = window.show();
                 let _ = window.set_always_on_top(true);
                 #[cfg(target_os = "linux")]

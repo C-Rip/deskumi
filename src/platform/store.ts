@@ -143,9 +143,12 @@ export async function saveWindowPosition(
 
   try {
     const win = getCurrentWindow();
-    const pos = await win.outerPosition();
+    // Use innerPosition() to align with setPosition() coordinate space,
+    // avoiding top frame extent offsets (like GNOME panel 37px offset).
+    const pos = await win.innerPosition();
     await configManager.set("windowX", pos.x);
     await configManager.set("windowY", pos.y);
+    console.log(`[deskumi] Saved window position: (${pos.x}, ${pos.y})`);
   } catch (err: unknown) {
     console.warn("[deskumi] Failed to query and save window position:", err);
   }
