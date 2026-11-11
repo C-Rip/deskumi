@@ -5,6 +5,7 @@ import {
   loadVRM
 } from "./engine/AvatarLoader";
 import { AnimationSystem } from "./engine/AnimationSystem";
+import { LookAtSystem } from "./engine/LookAtSystem";
 import { SceneManager } from "./engine/SceneManager";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
@@ -50,6 +51,13 @@ loadVRM(sampleAvatarUrl)
     );
     sceneManager.camera.position.copy(framing.cameraPosition);
     sceneManager.camera.lookAt(framing.target);
+
+    // Register LookAtSystem (gaze and head/neck tracking with damping and clamp)
+    const lookAtSystem = new LookAtSystem(vrm, {
+      camera: sceneManager.camera,
+      scene: sceneManager.scene
+    });
+    sceneManager.registerSystem(lookAtSystem);
 
     // Register procedural animation system (idle breathing, sway, relaxed arms, blinking)
     const animationSystem = new AnimationSystem(vrm);
