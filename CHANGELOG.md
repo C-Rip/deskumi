@@ -8,6 +8,7 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- SceneManager para Three.js con loop desacoplado, cálculo de delta time, FPS cap (30 FPS), pausa automática por visibilidad y gestión de subsistemas (T-201).
 - Módulo `src/engine/AvatarLoader.ts` con carga de modelos VRM vía `GLTFLoader` y `VRMLoaderPlugin`, normalización y optimización de esqueletos/mallas (`combineSkeletons`, `removeUnnecessaryVertices`, rotación VRM 0.x), cálculo matemático de encuadre y centrado (`computeBounds`, `centerAndGround`, `scaleToHeight`, `calculatePerspectiveFraming`, `calculateOrthoFraming`) y liberación segura de recursos de GPU (`disposeVRM`) (T-202).
 - Avatar oficial de muestra VRM 1.0 (`VRM1_Constraint_Twist_Sample.vrm`) verificado con licencia VRM Public License 1.0 y documentado en `CREDITS.md` (T-203).
 - Ventana transparente sin decoraciones ni sombra, configurada en 400x600 con always-on-top y skip-taskbar (T-102).
