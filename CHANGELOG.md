@@ -7,5 +7,6 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 ## [Unreleased]
 
 ### Added
+
 - Bootstrap del repositorio: documentación, ROADMAP, ADRs iniciales, reglas y skills
   para agentes, plantillas de GitHub, hooks de git y CI base.

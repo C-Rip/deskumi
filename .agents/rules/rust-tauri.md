@@ -6,6 +6,7 @@ description: Convenciones de Rust y Tauri v2. Aplicar al crear o editar cualquie
 # Reglas: Rust + Tauri v2 (`src-tauri/`)
 
 ## Tauri v2, no v1
+
 - Tipos: `tauri::WebviewWindow`, `tauri::Manager`, `app.get_webview_window("main")`.
 - Permisos con **capabilities** (`src-tauri/capabilities/*.json`), no `allowlist`.
 - Plugins oficiales son crates `tauri-plugin-*` + paquete npm `@tauri-apps/plugin-*`;
@@ -13,7 +14,8 @@ description: Convenciones de Rust y Tauri v2. Aplicar al crear o editar cualquie
 - Ante la duda, lee el código fuente de la versión instalada en `~/.cargo/registry/src/`.
 
 ## Estructura
-- `main.rs`: solo env vars de plataforma + `desktop_engine_lib::run()`.
+
+- `main.rs`: solo env vars de plataforma + `deskumi_lib::run()`.
 - `lib.rs`: `tauri::Builder`, plugins, `invoke_handler`, `setup`.
 - Un módulo por responsabilidad (`window.rs`, `cursor.rs`, `platform.rs`, `tray.rs`).
 - Código específico de SO con `#[cfg(target_os = "linux")]` en funciones/módulos
@@ -21,6 +23,7 @@ description: Convenciones de Rust y Tauri v2. Aplicar al crear o editar cualquie
   para los demás SO (aunque devuelva `Err` o no-op) para que compile en todos lados.
 
 ## Comandos IPC
+
 - `#[tauri::command]` devuelven `Result<T, AppError>`; `AppError` implementa
   `serde::Serialize` (usar `thiserror`). Nada de `unwrap()`/`expect()` en comandos.
 - Nombres en `snake_case`; payloads con `#[serde(rename_all = "camelCase")]` para que en
@@ -32,6 +35,7 @@ description: Convenciones de Rust y Tauri v2. Aplicar al crear o editar cualquie
   debe usarse desde el hilo principal (`run_on_main_thread`).
 
 ## Calidad
+
 - `cargo fmt` y `cargo clippy -- -D warnings` limpios.
 - `unsafe` solo con comentario `// SAFETY:` explicando la invariante.
 - Logs con `log`/`tauri-plugin-log`, no `println!` en código final.

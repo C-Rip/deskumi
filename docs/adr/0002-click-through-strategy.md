@@ -6,6 +6,7 @@
 - **Tarea relacionada:** T-103
 
 ## Contexto
+
 La ventana del personaje es más grande que el personaje. Los clics en zonas
 transparentes deben llegar a la app de abajo; los clics sobre el personaje deben
 llegar a nosotros (arrastrar, reaccionar).
@@ -15,6 +16,7 @@ entrada. A diferencia de Electron, **no reenvía `mousemove`** mientras ignora e
 así que una vez activado el WebView ya no sabe cuándo el cursor vuelve al personaje.
 
 ## Opciones consideradas
+
 1. **Input region (recomendada a priori).** El frontend calcula la silueta del
    avatar (bounding boxes gruesas, p. ej. rejilla de 16 px sobre el alpha del canvas
    o proyección de huesos) y la envía a Rust (`set_input_region`). Rust aplica la región:
@@ -33,6 +35,7 @@ así que una vez activado el WebView ya no sabe cuándo el cursor vuelve al pers
      salen del cuadro se recortan.
 
 ## Decisión (provisional)
+
 Implementar **Opción 1** como primaria; **Opción 2** como fallback cuando
 `caps.inputRegion == false`. **Opción 3** solo como último recurso.
 
@@ -40,9 +43,11 @@ El spike T-103 debe confirmar o refutar con evidencia en: Fedora GNOME (Wayland 
 y XWayland), Nobara KDE (Wayland), y documentar la matriz en `ARCHITECTURE.md`.
 
 ## Consecuencias
+
 - Se agrega el comando IPC `set_input_region` y `PlatformCaps.inputRegion`.
 - Puede requerir dependencias `gtk`/`gdk` en Rust (Linux) — ya vienen transitivas con Tauri;
   usar las mismas versiones que Tauri para no duplicar.
 
 ## Evidencia
+
 _Pendiente (T-103)._

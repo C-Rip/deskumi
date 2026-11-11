@@ -5,6 +5,7 @@ Solo existen tarjetas para tareas "listas" (🟦 en el [ROADMAP](../ROADMAP.md))
 demás se detallan cuando se acerca su fase (usa la skill `task-workflow` → "Crear tarjeta").
 
 ## Ciclo de vida
+
 ```mermaid
 stateDiagram-v2
   [*] --> lista
@@ -18,4 +19,5 @@ stateDiagram-v2
 ```
 
 ## Plantilla
+
 Copia [`_TEMPLATE.md`](_TEMPLATE.md).

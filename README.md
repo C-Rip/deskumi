@@ -6,6 +6,7 @@ y **Linux-first** (Fedora, Nobara, Debian; GNOME y KDE), con soporte Windows des
 > Estado: **Fase 0 — Bootstrap.** Aún no hay código; ver [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Características objetivo (v0.1)
+
 - Ventana transparente, sin bordes y siempre encima.
 - Carga de avatares `.vrm` (VRoid, Booth, etc.).
 - Animación idle, parpadeo, física de pelo/ropa (spring bones).
@@ -14,9 +15,11 @@ y **Linux-first** (Fedora, Nobara, Debian; GNOME y KDE), con soporte Windows des
 - Icono en bandeja, configuración persistente, bajo consumo de CPU/RAM.
 
 ## Stack
+
 Tauri v2 (Rust) · Vite · TypeScript · Three.js · @pixiv/three-vrm
 
 ## Empezar
+
 ```bash
 # 1. Activar hooks de git del repo
 git config core.hooksPath .githooks
@@ -30,16 +33,18 @@ npm run tauri dev
 ```
 
 ## Documentación
-| Documento | Para qué |
-| --- | --- |
-| [AGENTS.md](AGENTS.md) | Reglas para agentes de IA y humanos |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Flujo de git, commits, PRs |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | Plan de trabajo por fases e hitos |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño técnico y contrato IPC |
-| [docs/adr/](docs/adr/) | Decisiones de arquitectura |
-| [docs/tasks/](docs/tasks/) | Tarjetas de tareas para agentes |
-| [docs/QA.md](docs/QA.md) | Matriz de pruebas manuales por entorno |
+
+| Documento                                    | Para qué                               |
+| -------------------------------------------- | -------------------------------------- |
+| [AGENTS.md](AGENTS.md)                       | Reglas para agentes de IA y humanos    |
+| [CONTRIBUTING.md](CONTRIBUTING.md)           | Flujo de git, commits, PRs             |
+| [docs/ROADMAP.md](docs/ROADMAP.md)           | Plan de trabajo por fases e hitos      |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Diseño técnico y contrato IPC          |
+| [docs/adr/](docs/adr/)                       | Decisiones de arquitectura             |
+| [docs/tasks/](docs/tasks/)                   | Tarjetas de tareas para agentes        |
+| [docs/QA.md](docs/QA.md)                     | Matriz de pruebas manuales por entorno |
 
 ## Licencia
+
 MIT — ver [LICENSE](LICENSE). Los avatares de ejemplo tienen su propia licencia
 (ver [assets/CREDITS.md](assets/CREDITS.md)).

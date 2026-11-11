@@ -1,6 +1,7 @@
 # Arquitectura
 
 ## Vista general
+
 ```mermaid
 flowchart TB
   subgraph OS["Sistema operativo / compositor"]
@@ -28,6 +29,7 @@ flowchart TB
 ```
 
 ## Principios
+
 1. **El frontend no sabe de Tauri** salvo en `src/platform/`. El motor (`src/engine/`)
    es TS puro + Three.js → testeable y reutilizable (p. ej. en un navegador para debug).
 2. **Rust hace solo lo que el WebView no puede:** ventana, input region, cursor global,
@@ -39,6 +41,7 @@ flowchart TB
    nativo → LookAt solo cuando el cursor está sobre la ventana).
 
 ## Estructura objetivo
+
 ```text
 src/
 ├── main.ts                    # bootstrap: crea SceneManager, carga avatar, registra sistemas
@@ -64,25 +67,26 @@ src-tauri/
 ```
 
 ## Contrato IPC
+
 Toda comunicación pasa por `src/platform/ipc.ts`. Cambiar este contrato requiere
 actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 
-| Dirección | Nombre | Payload | Respuesta | Fase |
-| --- | --- | --- | --- | --- |
-| JS→Rust | `get_platform_caps` | — | `PlatformCaps` | F1 |
-| JS→Rust | `set_click_through` | `{ ignore: bool }` | `()` | F1 |
-| JS→Rust | `set_input_region` | `{ rects: Rect[] }` (px físicos, relativos a la ventana) | `()` | F1 (si ADR-0002 lo adopta) |
-| JS→Rust | `start_cursor_tracking` / `stop_cursor_tracking` | `{ hz: number }` | `()` | F3 |
-| Rust→JS (evento) | `cursor://moved` | `{ x, y, inside: bool }` (px físicos, relativos a la ventana) | — | F3 |
+| Dirección        | Nombre                                           | Payload                                                       | Respuesta      | Fase                       |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------------------- | -------------- | -------------------------- |
+| JS→Rust          | `get_platform_caps`                              | —                                                             | `PlatformCaps` | F1                         |
+| JS→Rust          | `set_click_through`                              | `{ ignore: bool }`                                            | `()`           | F1                         |
+| JS→Rust          | `set_input_region`                               | `{ rects: Rect[] }` (px físicos, relativos a la ventana)      | `()`           | F1 (si ADR-0002 lo adopta) |
+| JS→Rust          | `start_cursor_tracking` / `stop_cursor_tracking` | `{ hz: number }`                                              | `()`           | F3                         |
+| Rust→JS (evento) | `cursor://moved`                                 | `{ x, y, inside: bool }` (px físicos, relativos a la ventana) | —              | F3                         |
 
 ```ts
 type PlatformCaps = {
   os: "linux" | "windows" | "macos";
   displayServer: "x11" | "xwayland" | "wayland" | "win32" | "quartz";
-  globalCursor: boolean;   // ¿podemos leer el cursor fuera de la ventana?
-  inputRegion: boolean;    // ¿click-through parcial por región?
-  alwaysOnTop: boolean;    // ¿el compositor lo respeta?
-  setPosition: boolean;    // ¿podemos mover la ventana programáticamente?
+  globalCursor: boolean; // ¿podemos leer el cursor fuera de la ventana?
+  inputRegion: boolean; // ¿click-through parcial por región?
+  alwaysOnTop: boolean; // ¿el compositor lo respeta?
+  setPosition: boolean; // ¿podemos mover la ventana programáticamente?
 };
 type Rect = { x: number; y: number; w: number; h: number };
 ```
@@ -91,16 +95,19 @@ Movimiento de ventana: usar la API JS `getCurrentWindow().startDragging()` (func
 Wayland porque delega al compositor). `setPosition` solo si `caps.setPosition`.
 
 ## Matriz de capacidades esperada (validar en T-103)
-| Capacidad | X11 / XWayland | Wayland nativo (GNOME) | Wayland nativo (KDE) | Windows |
-| --- | --- | --- | --- | --- |
-| Transparencia | ✅ (con compositor) | ✅ | ✅ | ✅ |
-| Always-on-top | ✅ | ❌ (solo el usuario) | ⚠️ (reglas de KWin) | ✅ |
-| Cursor global | ✅ | ❌ | ❌ | ✅ |
-| Input region | ✅ (XShape) | ✅ (wl_surface input region) | ✅ | ⚠️ (por validar) |
-| Mover ventana por código | ✅ | ❌ (`startDragging` sí) | ❌ (`startDragging` sí) | ✅ |
+
+| Capacidad                | X11 / XWayland      | Wayland nativo (GNOME)       | Wayland nativo (KDE)    | Windows          |
+| ------------------------ | ------------------- | ---------------------------- | ----------------------- | ---------------- |
+| Transparencia            | ✅ (con compositor) | ✅                           | ✅                      | ✅               |
+| Always-on-top            | ✅                  | ❌ (solo el usuario)         | ⚠️ (reglas de KWin)     | ✅               |
+| Cursor global            | ✅                  | ❌                           | ❌                      | ✅               |
+| Input region             | ✅ (XShape)         | ✅ (wl_surface input region) | ✅                      | ⚠️ (por validar) |
+| Mover ventana por código | ✅                  | ❌ (`startDragging` sí)      | ❌ (`startDragging` sí) | ✅               |
 
 ## Decisiones
+
 Ver [docs/adr/](adr/). Resumen:
+
 - [ADR-0001](adr/0001-tauri-v2-threejs-vrm.md) — Tauri v2 + Three.js + three-vrm.
 - [ADR-0002](adr/0002-click-through-strategy.md) — Estrategia de click-through (**propuesta**, la cierra T-103).
 - [ADR-0003](adr/0003-xwayland-default-on-linux.md) — XWayland por defecto en Linux (**propuesta**).
