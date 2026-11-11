@@ -134,6 +134,36 @@ pub fn get_platform_caps() -> Result<PlatformCaps, AppError> {
     Ok(get_caps())
 }
 
+#[tauri::command]
+pub fn set_window_desktop_position(
+    window: tauri::WebviewWindow,
+    x: i32,
+    y: i32,
+) -> Result<(), AppError> {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::Cast;
+        use gtk::traits::GtkWindowExt;
+        use tauri::Manager;
+        let app = window.app_handle().clone();
+        app.run_on_main_thread(move || {
+            for widget in gtk::Window::list_toplevels() {
+                if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                    win.move_(x, y);
+                }
+            }
+        })
+        .map_err(|e| AppError::Platform(format!("Failed to move window on main thread: {e}")))?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (window, x, y);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

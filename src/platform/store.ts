@@ -1,4 +1,4 @@
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { LazyStore } from "@tauri-apps/plugin-store";
 
@@ -118,15 +118,27 @@ export async function restoreWindowPosition(
   const config = await configManager.load();
   if (config.windowX !== null && config.windowY !== null) {
     try {
-      const win = getCurrentWindow();
-      await win.setPosition(
-        new LogicalPosition(config.windowX, config.windowY)
-      );
+      // First try native GTK move (bypasses Mutter auto-centering/elevation)
+      await invoke("set_window_desktop_position", {
+        x: Math.round(config.windowX),
+        y: Math.round(config.windowY)
+      });
       console.log(
-        `[deskumi] Restored window position to (${config.windowX}, ${config.windowY})`
+        `[deskumi] Restored window position via native GTK to (${config.windowX}, ${config.windowY})`
       );
-    } catch (err: unknown) {
-      console.warn("[deskumi] Failed to restore window position:", err);
+    } catch {
+      // Fallback to Tauri standard setPosition
+      try {
+        const win = getCurrentWindow();
+        await win.setPosition(
+          new LogicalPosition(config.windowX, config.windowY)
+        );
+        console.log(
+          `[deskumi] Restored window position to (${config.windowX}, ${config.windowY})`
+        );
+      } catch (err: unknown) {
+        console.warn("[deskumi] Failed to restore window position:", err);
+      }
     }
   }
 }
