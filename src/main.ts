@@ -14,6 +14,11 @@ import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
 
+// Disable default WebKit context menu (Inspect Element, Back, Reload, etc.)
+window.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
 // Enable native window dragging with primary mouse button
 setupWindowDrag();
 

@@ -24,11 +24,31 @@ pub fn build_cairo_region(rects: &[Rect]) -> cairo::Region {
     region
 }
 
+#[cfg(target_os = "linux")]
+fn apply_region_to_hierarchy(widget: &gtk::Widget, region: Option<&cairo::Region>) {
+    use gtk::glib::Cast;
+    use gtk::traits::ContainerExt;
+    use gtk::traits::WidgetExt;
+
+    widget.input_shape_combine_region(region);
+
+    if let Some(gdk_win) = widget.window() {
+        if let Some(r) = region {
+            gdk_win.input_shape_combine_region(r, 0, 0);
+        }
+    }
+
+    if let Some(container) = widget.dynamic_cast_ref::<gtk::Container>() {
+        for child in container.children() {
+            apply_region_to_hierarchy(&child, region);
+        }
+    }
+}
+
 #[tauri::command]
 pub fn set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>) -> Result<(), AppError> {
     #[cfg(target_os = "linux")]
     {
-        use gtk::traits::WidgetExt;
         use tauri::Manager;
 
         let app = window.app_handle().clone();
@@ -44,10 +64,10 @@ pub fn set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>) -> Resu
 
             if let Some(rect_list) = rects {
                 let region = build_cairo_region(&rect_list);
-                gtk_window.input_shape_combine_region(Some(&region));
+                apply_region_to_hierarchy(gtk_window.as_ref(), Some(&region));
             } else {
                 // None restores full window interactive shape
-                gtk_window.input_shape_combine_region(None);
+                apply_region_to_hierarchy(gtk_window.as_ref(), None);
             }
         })
         .map_err(|e| AppError::Platform(format!("Failed to run on main thread: {e}")))?;
