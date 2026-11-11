@@ -156,6 +156,224 @@ export function calculateScreenBoundingBox(
 }
 
 /**
+ * Projects a 3D sphere / point with an estimated radius in meters into a 2D screen Rect.
+ */
+function projectSphereToScreenRect(
+  worldPos: THREE.Vector3,
+  radiusMeters: number,
+  camera: THREE.Camera,
+  viewportWidth: number,
+  viewportHeight: number,
+  padding = 0
+): Rect | null {
+  const p = worldPos.clone().project(camera);
+  if (!Number.isFinite(p.x) || !Number.isFinite(p.y) || p.z < -1 || p.z > 1) {
+    return null;
+  }
+
+  const cx = ((p.x + 1) / 2) * viewportWidth;
+  const cy = ((1 - p.y) / 2) * viewportHeight;
+
+  // Estimate radius in pixels by projecting offset
+  const offset = worldPos
+    .clone()
+    .add(new THREE.Vector3(radiusMeters, 0, 0))
+    .project(camera);
+  const pxRadius =
+    Math.max(12, Math.abs(((offset.x + 1) / 2) * viewportWidth - cx)) + padding;
+
+  const x0 = Math.max(0, Math.floor(cx - pxRadius));
+  const y0 = Math.max(0, Math.floor(cy - pxRadius));
+  const x1 = Math.min(viewportWidth, Math.ceil(cx + pxRadius));
+  const y1 = Math.min(viewportHeight, Math.ceil(cy + pxRadius));
+
+  const w = x1 - x0;
+  const h = y1 - y0;
+  if (w <= 0 || h <= 0) return null;
+
+  return { x: x0, y: y0, w, h };
+}
+
+/**
+ * Projects a segment between multiple 3D bone nodes into a screen Rect.
+ */
+function projectBoneSegment(
+  nodes: (THREE.Object3D | null | undefined)[],
+  radiusMeters: number,
+  camera: THREE.Camera,
+  viewportWidth: number,
+  viewportHeight: number,
+  padding = 0
+): Rect | null {
+  const validNodes = nodes.filter((n): n is THREE.Object3D => n != null);
+  if (validNodes.length === 0) return null;
+
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const node of validNodes) {
+    const worldPos = new THREE.Vector3();
+    node.getWorldPosition(worldPos);
+
+    const rect = projectSphereToScreenRect(
+      worldPos,
+      radiusMeters,
+      camera,
+      viewportWidth,
+      viewportHeight,
+      padding
+    );
+    if (rect) {
+      if (rect.x < minX) minX = rect.x;
+      if (rect.x + rect.w > maxX) maxX = rect.x + rect.w;
+      if (rect.y < minY) minY = rect.y;
+      if (rect.y + rect.h > maxY) maxY = rect.y + rect.h;
+    }
+  }
+
+  if (
+    !Number.isFinite(minX) ||
+    !Number.isFinite(maxX) ||
+    !Number.isFinite(minY) ||
+    !Number.isFinite(maxY) ||
+    maxX <= minX ||
+    maxY <= minY
+  ) {
+    return null;
+  }
+
+  return {
+    x: Math.round(minX),
+    y: Math.round(minY),
+    w: Math.round(maxX - minX),
+    h: Math.round(maxY - minY)
+  };
+}
+
+/**
+ * Calculates segmented anatomical input rects for a VRM avatar
+ * (head, torso, left/right arms, left/right legs) so negative space between limbs
+ * and on the sides cleanly passes clicks through to background apps.
+ */
+export function calculateAvatarSegmentRects(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  vrm: any,
+  camera: THREE.Camera,
+  viewportWidth: number,
+  viewportHeight: number,
+  padding = 8
+): Rect[] {
+  if (!vrm || viewportWidth <= 0 || viewportHeight <= 0) {
+    return [];
+  }
+
+  camera.updateMatrixWorld(true);
+
+  const humanoid = vrm.humanoid;
+  if (!humanoid) {
+    const full = calculateScreenBoundingBox(
+      vrm.scene ?? vrm,
+      camera,
+      viewportWidth,
+      viewportHeight,
+      padding
+    );
+    return full ? [full] : [];
+  }
+
+  const getBone = (name: string): THREE.Object3D | null => {
+    return (
+      humanoid.getNormalizedBoneNode?.(name) ??
+      humanoid.getRawBoneNode?.(name) ??
+      null
+    );
+  };
+
+  const rects: Rect[] = [];
+
+  // 1. Head and hair
+  const headRect = projectBoneSegment(
+    [getBone("head"), getBone("neck")],
+    0.16,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding + 6
+  );
+  if (headRect) rects.push(headRect);
+
+  // 2. Torso (chest, spine, hips)
+  const torsoRect = projectBoneSegment(
+    [getBone("chest"), getBone("spine"), getBone("hips")],
+    0.18,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding + 4
+  );
+  if (torsoRect) rects.push(torsoRect);
+
+  // 3. Left arm (upper arm, lower arm, hand)
+  const leftArmRect = projectBoneSegment(
+    [getBone("leftUpperArm"), getBone("leftLowerArm"), getBone("leftHand")],
+    0.09,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding
+  );
+  if (leftArmRect) rects.push(leftArmRect);
+
+  // 4. Right arm (upper arm, lower arm, hand)
+  const rightArmRect = projectBoneSegment(
+    [getBone("rightUpperArm"), getBone("rightLowerArm"), getBone("rightHand")],
+    0.09,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding
+  );
+  if (rightArmRect) rects.push(rightArmRect);
+
+  // 5. Left leg (upper leg, lower leg, foot)
+  const leftLegRect = projectBoneSegment(
+    [getBone("leftUpperLeg"), getBone("leftLowerLeg"), getBone("leftFoot")],
+    0.1,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding
+  );
+  if (leftLegRect) rects.push(leftLegRect);
+
+  // 6. Right leg (upper leg, lower leg, foot)
+  const rightLegRect = projectBoneSegment(
+    [getBone("rightUpperLeg"), getBone("rightLowerLeg"), getBone("rightFoot")],
+    0.1,
+    camera,
+    viewportWidth,
+    viewportHeight,
+    padding
+  );
+  if (rightLegRect) rects.push(rightLegRect);
+
+  if (rects.length === 0) {
+    const fallback = calculateScreenBoundingBox(
+      vrm.scene ?? vrm,
+      camera,
+      viewportWidth,
+      viewportHeight,
+      padding
+    );
+    if (fallback) rects.push(fallback);
+  }
+
+  return rects;
+}
+
+/**
  * Manages click-through input regions with throttling (~15 Hz) and deduplication
  * to avoid flooding the IPC bridge during animations.
  */
@@ -321,11 +539,12 @@ export async function resetInputRegion(): Promise<void> {
 
 /**
  * Engine system that continuously synchronizes the input region with the
- * avatar's projected screen bounding box.
+ * avatar's projected anatomical segments (or fallback bounding box).
  */
 export class AvatarInputRegionSystem implements System {
   constructor(
-    private readonly avatarRoot: THREE.Object3D,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly avatarOrVRM: any,
     private readonly camera: THREE.Camera,
     private readonly manager: InputRegionManager = defaultInputRegionManager,
     private readonly getViewportSize: () => {
@@ -335,21 +554,41 @@ export class AvatarInputRegionSystem implements System {
       width: typeof window !== "undefined" ? window.innerWidth : 800,
       height: typeof window !== "undefined" ? window.innerHeight : 600
     }),
-    private readonly padding = 16
+    private readonly padding = 8
   ) {}
 
   update(_dt: number): void {
     void _dt;
     const size = this.getViewportSize();
-    const rect = calculateScreenBoundingBox(
-      this.avatarRoot,
-      this.camera,
-      size.width,
-      size.height,
-      this.padding
-    );
-    if (rect) {
-      void this.manager.setRegion([rect]);
+    const isVRM =
+      this.avatarOrVRM &&
+      ("humanoid" in this.avatarOrVRM || "scene" in this.avatarOrVRM);
+    const rects = isVRM
+      ? calculateAvatarSegmentRects(
+          this.avatarOrVRM,
+          this.camera,
+          size.width,
+          size.height,
+          this.padding
+        )
+      : null;
+
+    if (rects && rects.length > 0) {
+      void this.manager.setRegion(rects);
+    } else {
+      const rootObj = this.avatarOrVRM?.scene ?? this.avatarOrVRM;
+      if (rootObj && "isObject3D" in rootObj) {
+        const rect = calculateScreenBoundingBox(
+          rootObj,
+          this.camera,
+          size.width,
+          size.height,
+          this.padding
+        );
+        if (rect) {
+          void this.manager.setRegion([rect]);
+        }
+      }
     }
   }
 

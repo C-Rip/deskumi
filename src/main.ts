@@ -69,9 +69,9 @@ loadVRM(sampleAvatarUrl)
     const animationSystem = new AnimationSystem(vrm);
     sceneManager.registerSystem(animationSystem);
 
-    // Register dynamic click-through input region system
+    // Register dynamic click-through input region system using VRM anatomical segments
     const inputRegionSystem = new AvatarInputRegionSystem(
-      vrm.scene,
+      vrm,
       sceneManager.camera
     );
     sceneManager.registerSystem(inputRegionSystem);
