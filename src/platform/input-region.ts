@@ -296,29 +296,29 @@ export function calculateAvatarSegmentRects(
   // 1. Head and hair
   const headRect = projectBoneSegment(
     [getBone("head"), getBone("neck")],
-    0.16,
+    0.13,
     camera,
     viewportWidth,
     viewportHeight,
-    padding + 6
+    padding
   );
   if (headRect) rects.push(headRect);
 
   // 2. Torso (chest, spine, hips)
   const torsoRect = projectBoneSegment(
     [getBone("chest"), getBone("spine"), getBone("hips")],
-    0.18,
+    0.11,
     camera,
     viewportWidth,
     viewportHeight,
-    padding + 4
+    padding
   );
   if (torsoRect) rects.push(torsoRect);
 
   // 3. Left arm (upper arm, lower arm, hand)
   const leftArmRect = projectBoneSegment(
     [getBone("leftUpperArm"), getBone("leftLowerArm"), getBone("leftHand")],
-    0.09,
+    0.045,
     camera,
     viewportWidth,
     viewportHeight,
@@ -329,7 +329,7 @@ export function calculateAvatarSegmentRects(
   // 4. Right arm (upper arm, lower arm, hand)
   const rightArmRect = projectBoneSegment(
     [getBone("rightUpperArm"), getBone("rightLowerArm"), getBone("rightHand")],
-    0.09,
+    0.045,
     camera,
     viewportWidth,
     viewportHeight,
@@ -340,7 +340,7 @@ export function calculateAvatarSegmentRects(
   // 5. Left leg (upper leg, lower leg, foot)
   const leftLegRect = projectBoneSegment(
     [getBone("leftUpperLeg"), getBone("leftLowerLeg"), getBone("leftFoot")],
-    0.1,
+    0.045,
     camera,
     viewportWidth,
     viewportHeight,
@@ -351,7 +351,7 @@ export function calculateAvatarSegmentRects(
   // 6. Right leg (upper leg, lower leg, foot)
   const rightLegRect = projectBoneSegment(
     [getBone("rightUpperLeg"), getBone("rightLowerLeg"), getBone("rightFoot")],
-    0.1,
+    0.045,
     camera,
     viewportWidth,
     viewportHeight,
