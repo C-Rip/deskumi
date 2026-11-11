@@ -64,6 +64,20 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
                 let _ = window.hide();
             } else {
                 let _ = window.show();
+                let _ = window.set_always_on_top(true);
+                #[cfg(target_os = "linux")]
+                {
+                    use gtk::glib::Cast;
+                    use gtk::traits::GtkWindowExt;
+                    let app_handle = app.clone();
+                    let _ = app_handle.run_on_main_thread(move || {
+                        for widget in gtk::Window::list_toplevels() {
+                            if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                                win.set_keep_above(true);
+                            }
+                        }
+                    });
+                }
                 let _ = window.set_focus();
             }
         }
