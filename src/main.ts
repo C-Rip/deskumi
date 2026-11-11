@@ -11,9 +11,13 @@ import { SceneManager } from "./engine/SceneManager";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
 import { AvatarInputRegionSystem } from "./platform/input-region";
+import { restoreWindowPosition, saveWindowPosition } from "./platform/store";
 import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
+
+// Restore saved desktop position from store
+void restoreWindowPosition();
 
 // Disable default WebKit context menu (Inspect Element, Back, Reload, etc.)
 window.addEventListener("contextmenu", (event) => {
@@ -21,6 +25,7 @@ window.addEventListener("contextmenu", (event) => {
 });
 
 let isDragging = false;
+let savePositionTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // Enable native window dragging with primary mouse button when dragging
 setupWindowDrag({
@@ -31,6 +36,16 @@ setupWindowDrag({
 });
 
 window.addEventListener("mouseup", () => {
+  if (isDragging) {
+    // Debounce saving the window position on drag completion
+    if (savePositionTimeout !== null) {
+      clearTimeout(savePositionTimeout);
+    }
+    savePositionTimeout = setTimeout(() => {
+      void saveWindowPosition();
+    }, 200);
+  }
+
   // Reset drag flag shortly after mouse up so click event can check it
   setTimeout(() => {
     isDragging = false;
