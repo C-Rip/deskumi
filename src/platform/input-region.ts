@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { System } from "../engine/types";
 import { setInputRegion as sendInputRegionIpc } from "./ipc";
+import { SilhouetteExtractor } from "./silhouette";
 
 /**
  * 2D rectangle in window client/logical pixel coordinates.
@@ -538,28 +539,125 @@ export async function resetInputRegion(): Promise<void> {
 }
 
 /**
+ * Configuration options for AvatarInputRegionSystem.
+ */
+export interface AvatarInputRegionSystemOptions {
+  /**
+   * Optional Three.js WebGLRenderer for pixel-perfect alpha silhouette extraction.
+   */
+  renderer?: THREE.WebGLRenderer;
+
+  /**
+   * Optional Scene reference (needed if renderer is supplied).
+   */
+  scene?: THREE.Scene;
+
+  /**
+   * Downscale factor for the silhouette extractor (default 4).
+   */
+  downscale?: number;
+
+  /**
+   * InputRegionManager to receive calculated rects.
+   */
+  manager?: InputRegionManager;
+
+  /**
+   * Viewport size provider function.
+   */
+  getViewportSize?: () => { width: number; height: number };
+
+  /**
+   * Padding in pixels around hit regions (default 4 for silhouette, 8 for boxes).
+   */
+  padding?: number;
+}
+
+/**
  * Engine system that continuously synchronizes the input region with the
- * avatar's projected anatomical segments (or fallback bounding box).
+ * avatar's pixel-perfect silhouette (or fallback projected anatomical segments).
  */
 export class AvatarInputRegionSystem implements System {
+  private readonly manager: InputRegionManager;
+  private readonly getViewportSize: () => { width: number; height: number };
+  private readonly padding: number;
+  private readonly silhouetteExtractor: SilhouetteExtractor | null = null;
+  private readonly renderer?: THREE.WebGLRenderer;
+  private readonly scene?: THREE.Scene;
+
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private readonly avatarOrVRM: any,
     private readonly camera: THREE.Camera,
-    private readonly manager: InputRegionManager = defaultInputRegionManager,
-    private readonly getViewportSize: () => {
-      width: number;
-      height: number;
-    } = () => ({
-      width: typeof window !== "undefined" ? window.innerWidth : 800,
-      height: typeof window !== "undefined" ? window.innerHeight : 600
-    }),
-    private readonly padding = 8
-  ) {}
+    optionsOrManager:
+      | InputRegionManager
+      | AvatarInputRegionSystemOptions = defaultInputRegionManager,
+    legacyGetViewportSize?: () => { width: number; height: number },
+    legacyPadding = 8
+  ) {
+    if (
+      optionsOrManager &&
+      ("setRegion" in optionsOrManager || "reset" in optionsOrManager)
+    ) {
+      // Legacy signature: (avatarOrVRM, camera, manager, getViewportSize, padding)
+      this.manager = optionsOrManager as InputRegionManager;
+      this.getViewportSize =
+        legacyGetViewportSize ??
+        (() => ({
+          width: typeof window !== "undefined" ? window.innerWidth : 800,
+          height: typeof window !== "undefined" ? window.innerHeight : 600
+        }));
+      this.padding = legacyPadding;
+    } else {
+      // Options object signature
+      const opts = (optionsOrManager ?? {}) as AvatarInputRegionSystemOptions;
+      this.manager = opts.manager ?? defaultInputRegionManager;
+      this.getViewportSize =
+        opts.getViewportSize ??
+        (() => ({
+          width: typeof window !== "undefined" ? window.innerWidth : 800,
+          height: typeof window !== "undefined" ? window.innerHeight : 600
+        }));
+      this.padding = opts.padding ?? (opts.renderer ? 3 : 8);
+      this.renderer = opts.renderer;
+      this.scene = opts.scene;
+
+      if (this.renderer && this.scene) {
+        this.silhouetteExtractor = new SilhouetteExtractor({
+          downscale: opts.downscale ?? 4,
+          padding: this.padding
+        });
+      }
+    }
+  }
 
   update(_dt: number): void {
     void _dt;
     const size = this.getViewportSize();
+
+    // 1. Pixel-perfect silhouette extraction if renderer & scene are provided
+    if (this.silhouetteExtractor && this.renderer && this.scene) {
+      try {
+        const silhouetteRects = this.silhouetteExtractor.extract(
+          this.renderer,
+          this.scene,
+          this.camera,
+          size.width,
+          size.height
+        );
+        if (silhouetteRects.length > 0) {
+          void this.manager.setRegion(silhouetteRects);
+          return;
+        }
+      } catch (err: unknown) {
+        console.warn(
+          "[deskumi] Silhouette extraction failed, falling back to segments:",
+          err
+        );
+      }
+    }
+
+    // 2. Anatomical segments fallback
     const isVRM =
       this.avatarOrVRM &&
       ("humanoid" in this.avatarOrVRM || "scene" in this.avatarOrVRM);
@@ -576,6 +674,7 @@ export class AvatarInputRegionSystem implements System {
     if (rects && rects.length > 0) {
       void this.manager.setRegion(rects);
     } else {
+      // 3. Whole avatar bounding box fallback
       const rootObj = this.avatarOrVRM?.scene ?? this.avatarOrVRM;
       if (rootObj && "isObject3D" in rootObj) {
         const rect = calculateScreenBoundingBox(
@@ -593,6 +692,9 @@ export class AvatarInputRegionSystem implements System {
   }
 
   dispose(): void {
+    if (this.silhouetteExtractor) {
+      this.silhouetteExtractor.dispose();
+    }
     void this.manager.reset();
   }
 }

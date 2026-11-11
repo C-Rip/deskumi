@@ -69,10 +69,16 @@ loadVRM(sampleAvatarUrl)
     const animationSystem = new AnimationSystem(vrm);
     sceneManager.registerSystem(animationSystem);
 
-    // Register dynamic click-through input region system using VRM anatomical segments
+    // Register dynamic click-through input region system using pixel-perfect silhouette hit-testing
     const inputRegionSystem = new AvatarInputRegionSystem(
       vrm,
-      sceneManager.camera
+      sceneManager.camera,
+      {
+        renderer: sceneManager.renderer,
+        scene: sceneManager.scene,
+        downscale: 4,
+        padding: 2
+      }
     );
     sceneManager.registerSystem(inputRegionSystem);
   })
