@@ -54,13 +54,16 @@ src/
 │   └── types.ts               # interfaces System { update(dt): void; dispose(): void }
 └── platform/
     ├── ipc.ts                 # wrappers tipados de invoke/listen
-    └── caps.ts                # capacidades de plataforma
+    ├── caps.ts                # capacidades de plataforma
+    ├── drag.ts                # drag de ventana nativo
+    └── input-region.ts        # regiones interactivas y click-through dinámico
 src-tauri/
 ├── tauri.conf.json
 ├── capabilities/default.json  # permisos mínimos (Tauri v2 ACL)
 └── src/
     ├── main.rs                # env vars Linux y llamada a lib::run()
     ├── lib.rs                 # Builder, plugins, invoke_handler
+    ├── input_region.rs        # comando set_input_region y cairo::Region (Linux)
     ├── window.rs              # comandos de ventana
     ├── cursor.rs              # polling del cursor global
     └── platform.rs            # detección X11/Wayland/Windows → PlatformCaps
@@ -71,13 +74,13 @@ src-tauri/
 Toda comunicación pasa por `src/platform/ipc.ts`. Cambiar este contrato requiere
 actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 
-| Dirección        | Nombre                                           | Payload                                                       | Respuesta      | Fase                       |
-| ---------------- | ------------------------------------------------ | ------------------------------------------------------------- | -------------- | -------------------------- |
-| JS→Rust          | `get_platform_caps`                              | —                                                             | `PlatformCaps` | F1                         |
-| JS→Rust          | `set_click_through`                              | `{ ignore: bool }`                                            | `()`           | F1                         |
-| JS→Rust          | `set_input_region`                               | `{ rects: Rect[] }` (px físicos, relativos a la ventana)      | `()`           | F1 (si ADR-0002 lo adopta) |
-| JS→Rust          | `start_cursor_tracking` / `stop_cursor_tracking` | `{ hz: number }`                                              | `()`           | F3                         |
-| Rust→JS (evento) | `cursor://moved`                                 | `{ x, y, inside: bool }` (px físicos, relativos a la ventana) | —              | F3                         |
+| Dirección        | Nombre                                           | Payload                                                                           | Respuesta      | Fase                  |
+| ---------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- | -------------- | --------------------- |
+| JS→Rust          | `get_platform_caps`                              | —                                                                                 | `PlatformCaps` | F1                    |
+| JS→Rust          | `set_click_through`                              | `{ ignore: bool }`                                                                | `()`           | F1                    |
+| JS→Rust          | `set_input_region`                               | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`           | F3 (ADR-0002 / T-303) |
+| JS→Rust          | `start_cursor_tracking` / `stop_cursor_tracking` | `{ hz: number }`                                                                  | `()`           | F3                    |
+| Rust→JS (evento) | `cursor://moved`                                 | `{ x, y, inside: bool }` (px físicos, relativos a la ventana)                     | —              | F3                    |
 
 ```ts
 type PlatformCaps = {

@@ -1,5 +1,6 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { PlatformCaps } from "./caps";
+import type { Rect } from "./input-region";
 
 export async function getPlatformCaps(): Promise<PlatformCaps> {
   if (!isTauri()) {
@@ -13,4 +14,11 @@ export async function getPlatformCaps(): Promise<PlatformCaps> {
     };
   }
   return await invoke<PlatformCaps>("get_platform_caps");
+}
+
+export async function setInputRegion(rects: Rect[] | null): Promise<void> {
+  if (!isTauri()) {
+    return;
+  }
+  await invoke("set_input_region", { rects });
 }

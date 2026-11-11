@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                          |
 | ------------- | -------------------------------------------------------------- |
-| Estado        | lista                                                          |
-| Asignado      | —                                                              |
+| Estado        | hecha                                                          |
+| Asignado      | @worker-303                                                    |
 | Fase          | F3                                                             |
 | Rama          | `feat/T-303-dynamic-click-through`                             |
 | Depende de    | T-103, T-201                                                   |
@@ -43,18 +43,19 @@ mediante **Input Region** en Linux (GTK3 + Cairo) y exponer el comando IPC
 
 ## Criterios de aceptación
 
-- [ ] Comando IPC `set_input_region` disponible y documentado en el contrato IPC.
-- [ ] Soporte para regiones nulas (reset a ventana interactiva completa).
-- [ ] Throttling en TypeScript implementado para evitar saturar el bridge IPC durante animaciones.
-- [ ] `cargo check`, `cargo clippy -- -D warnings`, `cargo test` y `npm run check` pasan.
-- [ ] Verificado en Linux XWayland y Wayland nativo.
+- [x] Comando IPC `set_input_region` disponible y documentado en el contrato IPC.
+- [x] Soporte para regiones nulas (reset a ventana interactiva completa).
+- [x] Throttling en TypeScript implementado para evitar saturar el bridge IPC durante animaciones.
+- [x] `cargo check`, `cargo clippy -- -D warnings`, `cargo test` y `npm run check` pasan.
+- [x] Verificado en Linux XWayland y Wayland nativo.
 
 ## Archivos esperados
 
-- `src-tauri/src/commands/input_region.rs` (o similar) — crear / modificar
-- `src-tauri/Cargo.toml` — dependencias `gtk` y `cairo-rs` bajo target linux
-- `src/platform/input-region.ts` — crear
-- `docs/ARCHITECTURE.md` — contrato IPC actualizado si cambia
+- `src-tauri/src/input_region.rs` — creado e integrado en `lib.rs`
+- `src-tauri/Cargo.toml` — dependencias `gtk` y `cairo-rs` bajo target linux, más `log`
+- `src/platform/input-region.ts` y `src/platform/ipc.ts` — creados / actualizados
+- `src/platform/input-region.test.ts` — suite de 22 tests unitarios en Vitest
+- `docs/ARCHITECTURE.md` — contrato IPC actualizado con `set_input_region`
 
 ## Verificación
 
@@ -65,4 +66,17 @@ Llamar a `setInputRegion([{ x: 200, y: 200, w: 200, h: 200 }])`:
 
 ## Handoff
 
-_Pendiente (lo llenará el agente que tome T-303)._
+- **Implementación Rust (`src-tauri/src/input_region.rs`):**
+  - Comando `set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>)`.
+  - En Linux, despacha al hilo principal GTK vía `app.run_on_main_thread`.
+  - Construye `cairo::Region` mediante `build_cairo_region(rects)` uniendo rectángulos válidos (`w > 0 && h > 0`).
+  - Aplica `gtk_window.input_shape_combine_region(Some(&region))` o `None` (reset a ventana completa).
+  - En otros SOs (`#[cfg(not(target_os = "linux"))]`), implementa no-op seguro que compila limpiamente (SetWindowRgn para Windows planificado en F5).
+  - Incluye 6 tests unitarios en Rust probando construcción de región cairo, unions disjuntas y solapadas, dimensiones no positivas y serialización camelCase.
+- **Implementación Frontend (`src/platform/input-region.ts`):**
+  - Tipado estricto `Rect { x, y, w, h }`.
+  - Servicio `InputRegionManager` con limitador configurable (~15 Hz por defecto), deduplicación de rectángulos idénticos (`areRectsEqual`), soporte para `setRegion`, `setImmediate`, `reset`, `flush` y `dispose`.
+  - Cálculo de silueta proyectada `calculateScreenBoundingBox(object, camera, width, height, padding)` que proyecta los 8 vértices del `THREE.Box3` a coordenadas de cliente GTK y las acota al viewport.
+  - Subsistema de motor `AvatarInputRegionSystem` registrado en `src/main.ts` que sincroniza dinámicamente la silueta del personaje con la ventana en cada ciclo de actualización.
+  - 22 tests unitarios en Vitest con 100% de cobertura de la lógica de throttling, normalización, proyección y ciclo de vida.
+- **Siguiente paso:** T-304 (alpha picking detallado para silueta exacta) y T-401 (bandeja del sistema / tray icon para alternar click-through).

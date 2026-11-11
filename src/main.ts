@@ -9,6 +9,7 @@ import { LookAtSystem } from "./engine/LookAtSystem";
 import { SceneManager } from "./engine/SceneManager";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
+import { AvatarInputRegionSystem } from "./platform/input-region";
 import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
@@ -62,6 +63,13 @@ loadVRM(sampleAvatarUrl)
     // Register procedural animation system (idle breathing, sway, relaxed arms, blinking)
     const animationSystem = new AnimationSystem(vrm);
     sceneManager.registerSystem(animationSystem);
+
+    // Register dynamic click-through input region system
+    const inputRegionSystem = new AvatarInputRegionSystem(
+      vrm.scene,
+      sceneManager.camera
+    );
+    sceneManager.registerSystem(inputRegionSystem);
   })
   .catch((err: unknown) => {
     console.error("[deskumi] Failed to load sample avatar:", err);

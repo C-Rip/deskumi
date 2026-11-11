@@ -714,6 +714,9 @@ dependencies = [
 name = "deskumi"
 version = "0.1.0"
 dependencies = [
+ "cairo-rs",
+ "gtk",
+ "log",
  "serde",
  "serde_json",
  "tauri",

@@ -8,6 +8,8 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- Dynamic click-through input region bridge (T-303): comando IPC en Rust `set_input_region` con `cairo::Region` y `gtk::WidgetExt::input_shape_combine_region` despachado en el hilo principal (`run_on_main_thread`), servicio TypeScript `InputRegionManager` con throttling (~15 Hz) y deduplicación, cálculo proyectado de silueta/bounding box y `AvatarInputRegionSystem` en `src/main.ts`.
+
 - `LookAtSystem` para seguimiento visual y rotación anatómica de cabeza y cuello con el puntero del mouse (`vrm.lookAt`, clamping a ±30°, interpolación suave por lerp damping y retorno automático a la posición frontal neutra al salir de la ventana o tras inactividad) (T-301).
 - AnimationSystem y BlinkController para animación idle procedural (respiración en columna, balanceo sutil de cadera y relajación de brazos a A-pose), máquina de estados para parpadeo aleatorio y simulación continua de spring bones (`vrm.update(dt)`) con carga del avatar oficial de muestra en `src/main.ts` (T-204).
 - SceneManager para Three.js con loop desacoplado, cálculo de delta time, FPS cap (30 FPS), pausa automática por visibilidad y gestión de subsistemas (T-201).

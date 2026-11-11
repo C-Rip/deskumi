@@ -62,7 +62,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | ----- | ------------------------------------------------------------------ | ------------ | --------- | ------ |
 | T-301 | LookAt al cursor (local en ventana; global donde el SO lo permita) | T-204        | con T-302 | ⬜     |
 | T-302 | Arrastrar ventana agarrando al personaje (`startDragging`)         | T-201        | con T-301 | ⬜     |
-| T-303 | Click-through dinámico en producción (según resultado de T-103)    | T-103, T-201 | —         | 🟦     |
+| T-303 | Click-through dinámico en producción (según resultado de T-103)    | T-103, T-201 | —         | 🟩     |
 | T-304 | Hit-test por píxel/silueta del avatar (picking alpha o raycast)    | T-202        | con T-301 | ⬜     |
 | T-305 | Reacciones: click → animación/expresión (happy, surprised)         | T-304        | —         | ⬜     |
 
