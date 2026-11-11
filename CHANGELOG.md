@@ -8,6 +8,7 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- Avatar oficial de muestra VRM 1.0 (`VRM1_Constraint_Twist_Sample.vrm`) verificado con licencia VRM Public License 1.0 y documentado en `CREDITS.md` (T-203).
 - Ventana transparente sin decoraciones ni sombra, configurada en 400x600 con always-on-top y skip-taskbar (T-102).
 - Workarounds de Linux para XWayland (`GDK_BACKEND=x11` salvo `DESKUMI_WAYLAND=1`) y prevención de fondo negro con WebKitGTK (`WEBKIT_DISABLE_DMABUF_RENDERER=1`) en `main.rs` (T-102).
 - Comando IPC `get_platform_caps` y módulo de capacidades de plataforma (`platform.rs`, `caps.ts`, `ipc.ts`) detectando X11, XWayland y Wayland nativo (T-102).
