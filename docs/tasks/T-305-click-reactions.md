@@ -1,14 +1,14 @@
 # T-305: Reacciones al clic / Interacción táctil (Happy, Surprised)
 
-| Campo         | Valor                                                                 |
-| ------------- | --------------------------------------------------------------------- |
-| Estado        | en curso                                                              |
-| Asignado      | @crivera + antigravity                                                |
-| Fase          | F3                                                                    |
-| Rama          | `feat/T-305-click-reactions`                                          |
-| Depende de    | T-304, T-204                                                          |
-| Estimación    | S (≤ 0.5 días)                                                        |
-| Skills útiles | `three-vrm-recipes`, `task-workflow`                                  |
+| Campo         | Valor                                |
+| ------------- | ------------------------------------ |
+| Estado        | completada                           |
+| Asignado      | @crivera + antigravity               |
+| Fase          | F3                                   |
+| Rama          | `feat/T-305-click-reactions`         |
+| Depende de    | T-304, T-204                         |
+| Estimación    | S (≤ 0.5 días)                       |
+| Skills útiles | `three-vrm-recipes`, `task-workflow` |
 
 ## Objetivo
 
@@ -33,10 +33,10 @@ Implementar un sistema de reacciones interactivas cuando el usuario hace clic so
 
 ## Criterios de aceptación
 
-- [ ] Al hacer clic sobre el avatar sin arrastrar la ventana, el personaje reacciona con una expresión facial (ej. `happy` o `surprised`).
-- [ ] La expresión interpola suavemente (fade in, hold, fade out) sin saltos bruscos.
-- [ ] Si se inicia un arrastre de ventana (`drag`), la reacción de clic no se dispara indebidamente si el puntero se movió significativamente.
-- [ ] Cobertura de tests unitarios al 100% en Vitest y `npm run check` limpio.
+- [x] Al hacer clic sobre el avatar sin arrastrar la ventana, el personaje reacciona con una expresión facial (ej. `happy` o `surprised`).
+- [x] La expresión interpola suavemente (fade in, hold, fade out) sin saltos bruscos.
+- [x] Si se inicia un arrastre de ventana (`drag`), la reacción de clic no se dispara indebidamente si el puntero se movió significativamente.
+- [x] Cobertura de tests unitarios al 100% en Vitest y `npm run check` limpio.
 
 ## Archivos esperados
 
@@ -47,4 +47,10 @@ Implementar un sistema de reacciones interactivas cuando el usuario hace clic so
 
 ## Handoff
 
-_Pendiente al completar la implementación._
+- **Implementación**:
+  - `src/engine/ReactionSystem.ts`: Manejo de expresiones (`happy`, `surprised`, `relaxed`, `wink`) con fade in / fade out senoidal y rebote/nod procedural en el avatar.
+  - `src/engine/ReactionSystem.test.ts`: Cobertura exhaustiva con 6 tests unitarios pasando.
+  - `src/main.ts`: Umbral de arrastre de 5px configurado en `setupWindowDrag` para no disparar reacciones al desplazar la ventana, y registro del listener `click` con `reactionSystem.triggerRandom()`.
+- **Verificación**:
+  - 117 tests en Vitest pasando al 100%.
+  - `npm run check` limpio y verificado interactivamente por el usuario en vivo.
