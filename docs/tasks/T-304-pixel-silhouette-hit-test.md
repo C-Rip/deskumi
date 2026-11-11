@@ -1,13 +1,13 @@
 # T-304: Hit-test y silueta exacta del avatar (Pixel-Perfect / Alpha Silhouette)
 
-| Campo         | Valor                                                          |
-| ------------- | -------------------------------------------------------------- |
-| Estado        | en curso                                                       |
-| Asignado      | @crivera + antigravity                                         |
-| Fase          | F3                                                             |
-| Rama          | `feat/T-304-pixel-silhouette-hit-test`                         |
-| Depende de    | T-303, T-202                                                   |
-| Estimación    | M (≤ 1 día)                                                    |
+| Campo         | Valor                                                                 |
+| ------------- | --------------------------------------------------------------------- |
+| Estado        | completada                                                            |
+| Asignado      | @crivera + antigravity                                                |
+| Fase          | F3                                                                    |
+| Rama          | `feat/T-304-pixel-silhouette-hit-test`                                |
+| Depende de    | T-303, T-202                                                          |
+| Estimación    | M (≤ 1 día)                                                           |
 | Skills útiles | `three-vrm-recipes`, `linux-overlay-troubleshooting`, `task-workflow` |
 
 ## Objetivo
@@ -32,10 +32,10 @@ Calcular la silueta exacta del avatar de forma pixel-perfect (utilizando rasteri
 
 ## Criterios de aceptación
 
-- [ ] La silueta generada calca el contorno real del modelo (ropa, dedos, piernas).
-- [ ] El espacio entre piernas y bajo los brazos es 100% interactivo para las ventanas de fondo.
-- [ ] Rendimiento sostenido a 30 FPS en Three.js sin caídas de framerate ni saturación de CPU.
-- [ ] Tests en Vitest y `npm run check` pasan al 100%.
+- [x] La silueta generada calca el contorno real del modelo (ropa, dedos, piernas).
+- [x] El espacio entre piernas y bajo los brazos es 100% interactivo para las ventanas de fondo.
+- [x] Rendimiento sostenido a 30 FPS en Three.js sin caídas de framerate ni saturación de CPU.
+- [x] Tests en Vitest y `npm run check` pasan al 100%.
 
 ## Archivos esperados
 
@@ -46,4 +46,12 @@ Calcular la silueta exacta del avatar de forma pixel-perfect (utilizando rasteri
 
 ## Handoff
 
-_Pendiente al completar la implementación._
+- **Implementación**:
+  - `src/platform/silhouette.ts`: Módulo `SilhouetteExtractor` que renderiza la escena en un `WebGLRenderTarget` reducido 4x, lee el buffer alpha y extrae bandas horizontales RLE combinando filas idénticas adyacentes.
+  - `src/platform/silhouette.test.ts`: Cobertura completa de tests unitarios validando RLE, padding, clamping y extracción offscreen con WebGLRenderer.
+  - `src/platform/input-region.ts`: `AvatarInputRegionSystem` actualizado para priorizar silueta pixel-perfect con fallback elegante a cajas anatómicas (T-303).
+  - `src/main.ts`: Inyección de `sceneManager.renderer` y `sceneManager.scene` a `AvatarInputRegionSystem`.
+- **Verificación**:
+  - 111/111 tests en Vitest pasando.
+  - 11/11 tests en Cargo y Clippy sin warnings.
+  - Validado empíricamente en pantalla: selección de texto y clics en ventanas detrás a través de los huecos entre piernas y bajo brazos con precisión de silueta.
