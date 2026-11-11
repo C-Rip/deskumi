@@ -7,9 +7,13 @@ import {
 import { AnimationSystem } from "./engine/AnimationSystem";
 import { SceneManager } from "./engine/SceneManager";
 import { getPlatformCaps } from "./platform/caps";
+import { setupWindowDrag } from "./platform/drag";
 import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
+
+// Enable native window dragging with primary mouse button
+setupWindowDrag();
 
 getPlatformCaps()
   .then((caps) => {
