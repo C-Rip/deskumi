@@ -48,11 +48,11 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                   | Depende de   | Paralelo  | Estado |
 | ----- | ----------------------------------------------------------------------- | ------------ | --------- | ------ |
-| T-201 | `SceneManager`: renderer alpha, cámara, luces, resize, loop con FPS cap | T-102        | con T-202 | 🟦     |
-| T-202 | `AvatarLoader`: GLTFLoader + VRMLoaderPlugin, autoescala y encuadre     | T-101        | con T-201 | 🟦     |
-| T-203 | Avatar de ejemplo con licencia verificada + `assets/CREDITS.md`         | —            | sí        | 🟦     |
-| T-204 | `AnimationSystem`: idle procedural, parpadeo aleatorio, spring bones    | T-201, T-202 | —         | ⬜     |
-| T-205 | Tests unitarios de lógica pura (timers de parpadeo, math de encuadre)   | T-204        | —         | ⬜     |
+| T-201 | `SceneManager`: renderer alpha, cámara, luces, resize, loop con FPS cap | T-102        | con T-202 | ✅     |
+| T-202 | `AvatarLoader`: GLTFLoader + VRMLoaderPlugin, autoescala y encuadre     | T-101        | con T-201 | ✅     |
+| T-203 | Avatar de ejemplo con licencia verificada + `assets/CREDITS.md`         | —            | sí        | ✅     |
+| T-204 | `AnimationSystem`: idle procedural, parpadeo aleatorio, spring bones    | T-201, T-202 | —         | ✅     |
+| T-205 | Tests unitarios de lógica pura (timers de parpadeo, math de encuadre)   | T-204        | —         | ✅     |
 
 ## F3 — "Está vivo" (interacción)
 
@@ -60,11 +60,11 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                              | Depende de   | Paralelo  | Estado |
 | ----- | ------------------------------------------------------------------ | ------------ | --------- | ------ |
-| T-301 | LookAt al cursor (local en ventana; global donde el SO lo permita) | T-204        | con T-302 | ⬜     |
-| T-302 | Arrastrar ventana agarrando al personaje (`startDragging`)         | T-201        | con T-301 | ⬜     |
-| T-303 | Click-through dinámico en producción (según resultado de T-103)    | T-103, T-201 | —         | 🟩     |
-| T-304 | Hit-test por píxel/silueta del avatar (picking alpha o raycast)    | T-202        | con T-301 | ⬜     |
-| T-305 | Reacciones: click → animación/expresión (happy, surprised)         | T-304        | —         | ⬜     |
+| T-301 | LookAt al cursor (local en ventana; global donde el SO lo permita) | T-204        | con T-302 | ✅     |
+| T-302 | Arrastrar ventana agarrando al personaje (`startDragging`)         | T-201        | con T-301 | ✅     |
+| T-303 | Click-through dinámico en producción (según resultado de T-103)    | T-103, T-201 | —         | ✅     |
+| T-304 | Hit-test por píxel/silueta del avatar (picking alpha o raycast)    | T-202        | con T-301 | ✅     |
+| T-305 | Reacciones: click → animación/expresión (happy, surprised)         | T-304        | —         | 🟦     |
 
 ## F4 — "Usable" (producto)
 
