@@ -1,0 +1,11 @@
+* text=auto eol=lf
+
+# Binarios / assets 3D (considerar Git LFS si crecen: ver docs/adr)
+*.vrm  binary
+*.vrma binary
+*.glb  binary
+*.fbx  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.icns binary

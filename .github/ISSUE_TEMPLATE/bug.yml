@@ -1,0 +1,29 @@
+name: 🐛 Bug
+description: Algo no funciona como debería
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: ¿Qué pasó?
+      description: Comportamiento actual vs esperado
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Entorno
+      placeholder: "Fedora 44 · GNOME · Wayland/XWayland · Intel HD 630 · v0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / capturas
+      render: shell

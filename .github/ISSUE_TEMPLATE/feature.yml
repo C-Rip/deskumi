@@ -1,0 +1,20 @@
+name: ✨ Funcionalidad / tarea
+description: Propuesta de funcionalidad o tarea del ROADMAP
+labels: [enhancement]
+body:
+  - type: input
+    id: task
+    attributes:
+      label: ID de tarea (si existe)
+      placeholder: T-301
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objetivo
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Criterios de aceptación
+      value: "- [ ] "

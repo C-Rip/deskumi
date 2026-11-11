@@ -1,0 +1,58 @@
+# Contribuir a Deskumi
+
+Aplica igual para humanos y agentes de IA. El detalle operativo está en la skill
+[`git-workflow`](.agents/skills/git-workflow/SKILL.md).
+
+## Modelo de ramas: trunk-based
+- `main` siempre compila y está protegida. Solo entra código vía PR con **squash merge**.
+- Ramas cortas (idealmente < 2 días) desde `main`:
+
+| Prefijo | Uso | Ejemplo |
+| --- | --- | --- |
+| `feat/` | funcionalidad nueva | `feat/T-202-vrm-loader` |
+| `fix/` | corrección de bug | `fix/T-310-black-bg-nvidia` |
+| `spike/` | experimento desechable | `spike/T-103-click-through` |
+| `docs/` | solo documentación | `docs/adr-0004-tray` |
+| `chore/` | tooling, deps, CI | `chore/T-104-ci` |
+| `refactor/` | sin cambio de comportamiento | `refactor/scene-loop` |
+
+Formato: `<tipo>/<ID-tarea>-<descripcion-kebab>`.
+
+## Commits: Conventional Commits
+```
+<tipo>(<scope opcional>): <resumen en imperativo, inglés, ≤ 72 chars>
+
+[cuerpo opcional: el porqué, no el qué]
+
+Refs: T-202
+```
+Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`.
+Scopes sugeridos: `window`, `ipc`, `render`, `avatar`, `anim`, `input`, `tray`, `config`, `build`, `agents`.
+Cambio incompatible: `feat(ipc)!: ...` + `BREAKING CHANGE:` en el cuerpo.
+
+Activa la validación local: `git config core.hooksPath .githooks`.
+
+## Pull Requests
+- Título = el commit de squash (Conventional Commit).
+- Usa la plantilla [.github/pull_request_template.md](.github/pull_request_template.md).
+- Un PR = una tarjeta de `docs/tasks/`. Si crece, divídelo.
+- CI verde + checklist de Definition of Done ([AGENTS.md](AGENTS.md)) completo.
+
+## Trabajo en paralelo con varios agentes
+Cada agente trabaja en su **propio git worktree** para no pisarse:
+```bash
+git worktree add ../de-T-202 -b feat/T-202-vrm-loader main
+```
+Reglas para evitar conflictos:
+1. Reclama la tarea en su tarjeta (`Estado: en progreso`, `Asignado: <agente>`) en tu rama.
+2. Respeta las dependencias declaradas en la tarjeta (`Depende de`).
+3. Archivos "calientes" (`package.json`, `Cargo.toml`, `tauri.conf.json`,
+   `src/main.ts`, `src-tauri/src/lib.rs`): cambios mínimos y rebase frecuente.
+4. Antes de abrir PR: `git fetch && git rebase origin/main`.
+
+## Versionado y releases
+- [SemVer](https://semver.org/lang/es/). Mientras sea `0.x`, cambios de minor pueden romper.
+- Tags `vX.Y.Z` en `main`. [CHANGELOG.md](CHANGELOG.md) en formato
+  [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
+- La versión vive en `package.json`, `src-tauri/Cargo.toml` y `src-tauri/tauri.conf.json`:
+  deben coincidir.

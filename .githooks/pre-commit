@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Bloquea commits directos a main (usa ramas + PR). Saltar solo en bootstrap/release:
+#   ALLOW_MAIN_COMMIT=1 git commit ...
+set -euo pipefail
+
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo "")"
+if [[ "$branch" == "main" && "${ALLOW_MAIN_COMMIT:-0}" != "1" ]]; then
+  echo "✘ No se permiten commits directos a main. Crea una rama (skill git-workflow)." >&2
+  echo "  (coordinador en release/squash-merge: ALLOW_MAIN_COMMIT=1 git commit ...)" >&2
+  exit 1
+fi
+
+# Evitar archivos pesados o generados por accidente
+if git diff --cached --name-only | grep -qE '(^|/)(node_modules|target|dist)/'; then
+  echo "✘ Estás agregando archivos generados (node_modules/target/dist)." >&2
+  exit 1
+fi
