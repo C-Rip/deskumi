@@ -6,6 +6,7 @@ import {
 } from "./engine/AvatarLoader";
 import { AnimationSystem } from "./engine/AnimationSystem";
 import { LookAtSystem } from "./engine/LookAtSystem";
+import { ReactionSystem } from "./engine/ReactionSystem";
 import { SceneManager } from "./engine/SceneManager";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
@@ -19,8 +20,22 @@ window.addEventListener("contextmenu", (event) => {
   event.preventDefault();
 });
 
-// Enable native window dragging with primary mouse button
-setupWindowDrag();
+let isDragging = false;
+
+// Enable native window dragging with primary mouse button when dragging
+setupWindowDrag({
+  threshold: 5,
+  onDragStart: () => {
+    isDragging = true;
+  }
+});
+
+window.addEventListener("mouseup", () => {
+  // Reset drag flag shortly after mouse up so click event can check it
+  setTimeout(() => {
+    isDragging = false;
+  }, 50);
+});
 
 getPlatformCaps()
   .then((caps) => {
@@ -81,6 +96,24 @@ loadVRM(sampleAvatarUrl)
       }
     );
     sceneManager.registerSystem(inputRegionSystem);
+
+    // Register ReactionSystem for click/touch feedback
+    const reactionSystem = new ReactionSystem(vrm, {
+      duration: 1.5,
+      bounceAmplitude: 0.04
+    });
+    sceneManager.registerSystem(reactionSystem);
+
+    // Trigger reaction on avatar click (if not dragged)
+    window.addEventListener("click", (event) => {
+      if (isDragging) {
+        return;
+      }
+      if (event.button === 0) {
+        console.log("[deskumi] Avatar clicked! Triggering reaction");
+        reactionSystem.triggerRandom();
+      }
+    });
   })
   .catch((err: unknown) => {
     console.error("[deskumi] Failed to load sample avatar:", err);
