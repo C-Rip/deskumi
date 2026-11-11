@@ -30,7 +30,10 @@ fn apply_region_to_hierarchy(widget: &gtk::Widget, region: Option<&cairo::Region
     use gtk::traits::ContainerExt;
     use gtk::traits::WidgetExt;
 
-    widget.input_shape_combine_region(region);
+    // Only widgets backed by a native GdkWindow can receive input_shape_combine_region
+    if widget.has_window() {
+        widget.input_shape_combine_region(region);
+    }
 
     if let Some(gdk_win) = widget.window() {
         if let Some(r) = region {
