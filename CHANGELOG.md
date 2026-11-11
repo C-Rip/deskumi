@@ -8,6 +8,7 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- AnimationSystem y BlinkController para animación idle procedural (respiración en columna, balanceo sutil de cadera y relajación de brazos a A-pose), máquina de estados para parpadeo aleatorio y simulación continua de spring bones (`vrm.update(dt)`) con carga del avatar oficial de muestra en `src/main.ts` (T-204).
 - SceneManager para Three.js con loop desacoplado, cálculo de delta time, FPS cap (30 FPS), pausa automática por visibilidad y gestión de subsistemas (T-201).
 - Módulo `src/engine/AvatarLoader.ts` con carga de modelos VRM vía `GLTFLoader` y `VRMLoaderPlugin`, normalización y optimización de esqueletos/mallas (`combineSkeletons`, `removeUnnecessaryVertices`, rotación VRM 0.x), cálculo matemático de encuadre y centrado (`computeBounds`, `centerAndGround`, `scaleToHeight`, `calculatePerspectiveFraming`, `calculateOrthoFraming`) y liberación segura de recursos de GPU (`disposeVRM`) (T-202).
 - Avatar oficial de muestra VRM 1.0 (`VRM1_Constraint_Twist_Sample.vrm`) verificado con licencia VRM Public License 1.0 y documentado en `CREDITS.md` (T-203).
