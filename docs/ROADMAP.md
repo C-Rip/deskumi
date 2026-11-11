@@ -72,8 +72,8 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                    | Depende de | Paralelo  | Estado |
 | ----- | ------------------------------------------------------------------------ | ---------- | --------- | ------ |
-| T-401 | Tray icon + menú (mostrar/ocultar, bloquear click-through, salir)        | T-303      | con T-402 | ⬜     |
-| T-402 | Config persistente (`tauri-plugin-store`): avatar, escala, FPS, posición | T-201      | con T-401 | ⬜     |
+| T-401 | Tray icon + menú (mostrar/ocultar, bloquear click-through, salir)        | T-303      | con T-402 | ✅     |
+| T-402 | Config persistente (`tauri-plugin-store`): avatar, escala, FPS, posición | T-201      | con T-401 | 🟦     |
 | T-403 | Importar `.vrm` propio (`tauri-plugin-dialog` + scope de fs seguro)      | T-402      | —         | ⬜     |
 | T-404 | Animaciones `.vrma` (`@pixiv/three-vrm-animation`) y selector            | T-204      | sí        | ⬜     |
 | T-405 | Ahorro de energía: 30→10 FPS en reposo, pausa si oculta/fullscreen       | T-201      | sí        | ⬜     |
