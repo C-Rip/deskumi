@@ -40,7 +40,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | T-101 | Scaffold Tauri v2 + Vite + TS + tooling (lint, format, tests)                 | —          | —                | 🟦     |
 | T-102 | Ventana transparente/sin bordes/always-on-top + workarounds Linux             | T-101      | con T-103, T-104 | 🟦     |
 | T-103 | **Spike** click-through: input region vs toggle por polling → cierra ADR-0002 | T-101      | con T-102, T-104 | 🟦     |
-| T-104 | CI: GitHub Actions (lint, typecheck, clippy, build Linux)                     | T-101      | con T-102, T-103 | 🟦     |
+| T-104 | CI: GitHub Actions (lint, typecheck, clippy, build Linux)                     | T-101      | con T-102, T-103 | 🟨     |
 
 ## F2 — "Hola, monito" (motor de render)
 

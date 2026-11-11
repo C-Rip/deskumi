@@ -59,6 +59,22 @@ Reglas para evitar conflictos:
    `src/main.ts`, `src-tauri/src/lib.rs`): cambios mínimos y rebase frecuente.
 4. Antes de abrir PR: `git fetch && git rebase origin/dev`.
 
+## Protección de ramas en GitHub
+
+Para mantener la estabilidad de `main` y `dev`, configurar Branch Protection Rules (o Rulesets) en el repositorio de GitHub:
+
+1. **Ramas protegidas:** `main` y `dev`.
+2. **Requerir Pull Request antes de fusionar:**
+   - Exigir al menos 1 aprobación (review) para cambios hacia `main`.
+   - Impedir commits y pushes directos (`Require a pull request before merging`).
+3. **Requerir que los chequeos de estado pasen antes del merge (Status checks):**
+   - Marcar como obligatorios (`Require status checks to pass before merging` y `Require branches to be up to date before merging`):
+     - `pr-title` (en pull requests)
+     - `frontend`
+     - `rust`
+     - `build-linux` (en `main`)
+4. **No permitir saltarse las reglas:** aplicar estas restricciones también a administradores (`Do not allow bypassing the above settings`).
+
 ## Versionado y releases
 
 - [SemVer](https://semver.org/lang/es/). Mientras sea `0.x`, cambios de minor pueden romper.

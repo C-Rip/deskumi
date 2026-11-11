@@ -25,43 +25,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # T-104: quitar el guard cuando exista package.json
-      - id: guard
-        run: test -f package.json && echo "run=true" >> "$GITHUB_OUTPUT" || echo "run=false" >> "$GITHUB_OUTPUT"
-      - if: steps.guard.outputs.run == 'true'
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - if: steps.guard.outputs.run == 'true'
-        run: npm ci
-      - if: steps.guard.outputs.run == 'true'
-        run: npm run check
+      - run: npm ci
+      - run: npm run check
 
   rust:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      # T-104: quitar el guard cuando exista src-tauri
-      - id: guard
-        run: test -f src-tauri/Cargo.toml && echo "run=true" >> "$GITHUB_OUTPUT" || echo "run=false" >> "$GITHUB_OUTPUT"
-      - if: steps.guard.outputs.run == 'true'
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev \
             libssl-dev libayatana-appindicator3-dev librsvg2-dev
-      - if: steps.guard.outputs.run == 'true'
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
-      - if: steps.guard.outputs.run == 'true'
-        uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - if: steps.guard.outputs.run == 'true'
+      - name: Format, lint and test
         working-directory: src-tauri
         run: |
           mkdir -p ../dist   # tauri::generate_context! requiere frontendDist
           cargo fmt --check
           cargo clippy --all-targets -- -D warnings
           cargo test
+
+  build-linux:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [frontend, rust]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential libxdo-dev \
+            libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run tauri build -- --no-bundle

@@ -1,5 +1,7 @@
 # Deskumi ✨
 
+[![CI](https://github.com/C-Rip/deskumi/actions/workflows/ci.yml/badge.svg)](https://github.com/C-Rip/deskumi/actions/workflows/ci.yml)
+
 Personajes 3D (VRM) y 2D interactivos viviendo en tu escritorio — ligero, open source
 y **Linux-first** (Fedora, Nobara, Debian; GNOME y KDE), con soporte Windows después.
 
