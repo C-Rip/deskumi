@@ -69,14 +69,16 @@ Llamar a `setInputRegion([{ x: 200, y: 200, w: 200, h: 200 }])`:
 - **Implementación Rust (`src-tauri/src/input_region.rs`):**
   - Comando `set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>)`.
   - En Linux, despacha al hilo principal GTK vía `app.run_on_main_thread`.
+  - Evita deadlocks de canales síncronos en Tauri accediendo a `gtk::Window::list_toplevels()` y propagando recursivamente (`apply_region_to_hierarchy`) la región Cairo a widgets y superficies hijas GDK.
   - Construye `cairo::Region` mediante `build_cairo_region(rects)` uniendo rectángulos válidos (`w > 0 && h > 0`).
-  - Aplica `gtk_window.input_shape_combine_region(Some(&region))` o `None` (reset a ventana completa).
+  - Restaura forma completa al recibir `None`.
   - En otros SOs (`#[cfg(not(target_os = "linux"))]`), implementa no-op seguro que compila limpiamente (SetWindowRgn para Windows planificado en F5).
   - Incluye 6 tests unitarios en Rust probando construcción de región cairo, unions disjuntas y solapadas, dimensiones no positivas y serialización camelCase.
 - **Implementación Frontend (`src/platform/input-region.ts`):**
   - Tipado estricto `Rect { x, y, w, h }`.
   - Servicio `InputRegionManager` con limitador configurable (~15 Hz por defecto), deduplicación de rectángulos idénticos (`areRectsEqual`), soporte para `setRegion`, `setImmediate`, `reset`, `flush` y `dispose`.
-  - Cálculo de silueta proyectada `calculateScreenBoundingBox(object, camera, width, height, padding)` que proyecta los 8 vértices del `THREE.Box3` a coordenadas de cliente GTK y las acota al viewport.
-  - Subsistema de motor `AvatarInputRegionSystem` registrado en `src/main.ts` que sincroniza dinámicamente la silueta del personaje con la ventana en cada ciclo de actualización.
-  - 22 tests unitarios en Vitest con 100% de cobertura de la lógica de throttling, normalización, proyección y ciclo de vida.
-- **Siguiente paso:** T-304 (alpha picking detallado para silueta exacta) y T-401 (bandeja del sistema / tray icon para alternar click-through).
+  - Cálculo de silueta por segmentos anatómicos VRM `calculateAvatarSegmentRects` (cabeza, torso, brazos, piernas) con fallback a `calculateScreenBoundingBox`.
+  - Subsistema de motor `AvatarInputRegionSystem` registrado en `src/main.ts` que sincroniza dinámicamente las regiones interactivas con la ventana.
+  - Previene menú contextual WebKit con `contextmenu` listener en `src/main.ts`.
+  - 22 tests unitarios en Vitest con 100% de cobertura.
+- **Siguiente paso:** T-304 (hit-test por silueta exacta / alpha picking o rejilla de micro-rectángulos para contorno perfecto pixel a pixel).
