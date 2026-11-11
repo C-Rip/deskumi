@@ -54,20 +54,22 @@ pub fn set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>) -> Resu
         let app = window.app_handle().clone();
 
         app.run_on_main_thread(move || {
-            let gtk_window = match window.gtk_window() {
-                Ok(w) => w,
-                Err(e) => {
-                    log::error!("Failed to obtain GTK window for input region: {e}");
-                    return;
-                }
-            };
+            let toplevels = gtk::Window::list_toplevels();
+            if toplevels.is_empty() {
+                log::warn!("No GTK top-level windows found for input region");
+                return;
+            }
 
             if let Some(rect_list) = rects {
                 let region = build_cairo_region(&rect_list);
-                apply_region_to_hierarchy(gtk_window.as_ref(), Some(&region));
+                for win in toplevels {
+                    apply_region_to_hierarchy(&win, Some(&region));
+                }
             } else {
                 // None restores full window interactive shape
-                apply_region_to_hierarchy(gtk_window.as_ref(), None);
+                for win in toplevels {
+                    apply_region_to_hierarchy(&win, None);
+                }
             }
         })
         .map_err(|e| AppError::Platform(format!("Failed to run on main thread: {e}")))?;
