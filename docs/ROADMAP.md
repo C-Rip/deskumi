@@ -30,17 +30,17 @@ flowchart LR
 
 Repo, documentación, reglas y skills de agentes, hooks, CI base.
 
-## F1 — "Ventana fantasma" (riesgo técnico)
+## F1 — "Ventana fantasma" (riesgo técnico) ✅
 
 **Demo:** una ventana transparente sin bordes con un cubo girando; los clics fuera del
 cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                         | Depende de | Paralelo         | Estado |
 | ----- | ----------------------------------------------------------------------------- | ---------- | ---------------- | ------ |
-| T-101 | Scaffold Tauri v2 + Vite + TS + tooling (lint, format, tests)                 | —          | —                | 🟦     |
-| T-102 | Ventana transparente/sin bordes/always-on-top + workarounds Linux             | T-101      | con T-103, T-104 | 🟦     |
-| T-103 | **Spike** click-through: input region vs toggle por polling → cierra ADR-0002 | T-101      | con T-102, T-104 | 🟦     |
-| T-104 | CI: GitHub Actions (lint, typecheck, clippy, build Linux)                     | T-101      | con T-102, T-103 | 🟨     |
+| T-101 | Scaffold Tauri v2 + Vite + TS + tooling (lint, format, tests)                 | —          | —                | ✅     |
+| T-102 | Ventana transparente/sin bordes/always-on-top + workarounds Linux             | T-101      | con T-103, T-104 | ✅     |
+| T-103 | **Spike** click-through: input region vs toggle por polling → cierra ADR-0002 | T-101      | con T-102, T-104 | ✅     |
+| T-104 | CI: GitHub Actions (lint, typecheck, clippy, build Linux)                     | T-101      | con T-102, T-103 | ✅     |
 
 ## F2 — "Hola, monito" (motor de render)
 
@@ -48,9 +48,9 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                   | Depende de   | Paralelo  | Estado |
 | ----- | ----------------------------------------------------------------------- | ------------ | --------- | ------ |
-| T-201 | `SceneManager`: renderer alpha, cámara, luces, resize, loop con FPS cap | T-102        | con T-202 | ⬜     |
-| T-202 | `AvatarLoader`: GLTFLoader + VRMLoaderPlugin, autoescala y encuadre     | T-101        | con T-201 | ⬜     |
-| T-203 | Avatar de ejemplo con licencia verificada + `assets/CREDITS.md`         | —            | sí        | ⬜     |
+| T-201 | `SceneManager`: renderer alpha, cámara, luces, resize, loop con FPS cap | T-102        | con T-202 | 🟦     |
+| T-202 | `AvatarLoader`: GLTFLoader + VRMLoaderPlugin, autoescala y encuadre     | T-101        | con T-201 | 🟦     |
+| T-203 | Avatar de ejemplo con licencia verificada + `assets/CREDITS.md`         | —            | sí        | 🟦     |
 | T-204 | `AnimationSystem`: idle procedural, parpadeo aleatorio, spring bones    | T-201, T-202 | —         | ⬜     |
 | T-205 | Tests unitarios de lógica pura (timers de parpadeo, math de encuadre)   | T-204        | —         | ⬜     |
 
