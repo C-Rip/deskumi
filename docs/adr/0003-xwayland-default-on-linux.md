@@ -1,8 +1,8 @@
 # ADR-0003: XWayland por defecto en Linux
 
-- **Estado:** propuesta — validar en T-102/T-103
+- **Estado:** aceptada
 - **Fecha:** 2026-11-11
-- **Autor(es):** crivera + agente
+- **Autor(es):** crivera + agente (worker-102)
 - **Tarea relacionada:** T-102
 
 ## Contexto
@@ -36,4 +36,8 @@ Revisar layer-shell en F6 para KDE/wlroots.
 
 ## Evidencia
 
-_Pendiente (T-102/T-103)._
+Validado en T-102 en el entorno E1 (Fedora 44 Workstation, GNOME Wayland `wayland-0`, Intel HD 630, WebKitGTK 2.54.2):
+
+- En modo por defecto (`GDK_BACKEND=x11`, `WEBKIT_DISABLE_DMABUF_RENDERER=1` inyectados en `main.rs`): la ventana inicia con 100% de transparencia, sin bordes ni sombras, el render Three.js funciona sin fondo negro y always-on-top se respeta al enfocar otras ventanas.
+- En modo `DESKUMI_WAYLAND=1`: WebKitGTK corre de forma nativa en Wayland; `get_platform_caps` reporta `displayServer: "wayland"` y refleja las limitaciones de la plataforma (`alwaysOnTop: false`, `globalCursor: false`, `setPosition: false`).
+- Decisión: Aceptada formalmente. XWayland es el backend por defecto en Linux para garantizar soporte completo de overlay.

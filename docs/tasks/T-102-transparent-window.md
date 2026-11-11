@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                            |
 | ------------- | ------------------------------------------------ |
-| Estado        | lista                                            |
-| Asignado      | —                                                |
+| Estado        | completada                                       |
+| Asignado      | worker-102                                       |
 | Fase          | F1                                               |
 | Rama          | `feat/T-102-transparent-window`                  |
 | Depende de    | T-101                                            |
@@ -44,10 +44,10 @@ sin entrada en la barra de tareas, mostrando un cubo Three.js girando como prueb
 
 ## Criterios de aceptación
 
-- [ ] Sin fondo negro/blanco ni sombra en E1 (XWayland y Wayland nativo).
-- [ ] Always-on-top funciona en modo XWayland.
-- [ ] `get_platform_caps` devuelve valores correctos (loguear en consola del WebView).
-- [ ] ADR-0003: sección Evidencia con resultados; estado → aceptada/rechazada.
+- [x] Sin fondo negro/blanco ni sombra en E1 (XWayland y Wayland nativo).
+- [x] Always-on-top funciona en modo XWayland.
+- [x] `get_platform_caps` devuelve valores correctos (loguear en consola del WebView).
+- [x] ADR-0003: sección Evidencia con resultados; estado → aceptada/rechazada.
 
 ## Archivos esperados
 
@@ -64,4 +64,23 @@ DESKUMI_WAYLAND=1 npm run tauri dev # Wayland nativo
 
 ## Handoff
 
-_Pendiente._
+### Implementado
+
+- **Configuración de ventana:** `src-tauri/tauri.conf.json` configurado con ventana `main` de 400x600, `transparent: true`, `decorations: false`, `shadow: false`, `alwaysOnTop: true`, `skipTaskbar: true`, `resizable: false`.
+- **Workarounds Linux:** `src-tauri/src/main.rs` aplica `GDK_BACKEND=x11` por defecto (a menos que `DESKUMI_WAYLAND=1`) y `WEBKIT_DISABLE_DMABUF_RENDERER=1` antes del inicio de WebKitGTK/Tauri, con variantes multi-SO condicionales (`#[cfg]`).
+- **Detección de capacidades:** `src-tauri/src/platform.rs` con comando `get_platform_caps` que detecta display server (`x11`, `xwayland`, `wayland`, `win32`, `quartz`) y devuelve `PlatformCaps` respetando el contrato IPC tipado.
+- **Frontend IPC y plataforma:** `src/platform/caps.ts` y `src/platform/ipc.ts` implementan la llamada a Tauri con fallback seguro cuando corre fuera de Tauri.
+- **Escena Three.js de prueba:** `src/main.ts` inicializa `WebGLRenderer` con `alpha: true`, `premultipliedAlpha: true`, `setClearColor(0x000000, 0)`, resize handler reactivo y un cubo 3D rotando sobre fondo transparente. `src/styles/app.css` asegura transparencia completa.
+- **ADR-0003:** Aceptada y documentada con la evidencia de validación en E1.
+
+### Validación en E1
+
+- Entorno: Fedora 44 (Workstation Edition), GNOME (sesión Wayland `wayland-0`), Intel HD Graphics 630, WebKitGTK 2.54.2.
+- Q-01 (Arranque / Transparencia): ✅ OK (sin fondo negro ni sombras, transparencia completa con el cubo Three.js rotando).
+- Q-02 (Always-on-top): ✅ OK en modo por defecto (XWayland).
+- Q-07 (Bordes): ✅ OK (sin halos ni artefactos gracias a `premultipliedAlpha: true`).
+- Comportamiento `DESKUMI_WAYLAND=1`: Inicia en Wayland nativo con capacidades degradadas reportadas por `get_platform_caps` (`displayServer: "wayland"`, `alwaysOnTop: false`).
+
+### Siguiente tarea (T-103)
+
+- T-103 implementará el click-through / hit testing y la definición de input region en `window.rs` / `Interaction.ts`. El backend XWayland configurado en T-102 proporciona soporte para XShape mientras que Wayland nativo requerirá wl_surface input region.
