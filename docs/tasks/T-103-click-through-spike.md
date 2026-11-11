@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                  |
 | ------------- | -------------------------------------- |
-| Estado        | lista                                  |
-| Asignado      | —                                      |
+| Estado        | hecha                                  |
+| Asignado      | @worker-103                            |
 | Fase          | F1                                     |
 | Rama          | `spike/T-103-click-through`            |
 | Depende de    | T-101 (idealmente sobre T-102)         |
@@ -43,10 +43,10 @@ Wayland. Acceso a la ventana GTK desde Tauri v2 en Linux: `WebviewWindow::gtk_wi
 
 ## Criterios de aceptación
 
-- [ ] ADR-0002 en estado **aceptada** con evidencia por entorno.
-- [ ] Matriz de capacidades de ARCHITECTURE.md actualizada con datos reales.
-- [ ] Tarjeta T-303 creada con el plan de implementación definitivo.
-- [ ] El PR del spike se mergea **solo** con docs (o con código detrás de un flag
+- [x] ADR-0002 en estado **aceptada** con evidencia por entorno.
+- [x] Matriz de capacidades de ARCHITECTURE.md actualizada con datos reales.
+- [x] Tarjeta T-303 creada con el plan de implementación definitivo.
+- [x] El PR del spike se mergea **solo** con docs (o con código detrás de un flag
       si se decide reutilizarlo).
 
 ## Verificación
@@ -56,4 +56,15 @@ clic dentro de la región registra evento en la consola del WebView.
 
 ## Handoff
 
-_Pendiente._
+- **Decisión adoptada:** Aprobada la **Opción 1 (Input Region)**. Se descarta la Opción 2 (Polling de cursor) debido a que el protocolo Wayland no expone cursor global a clientes sin privilegios (retorna `(0, 0)` en Tao).
+- **Mediciones empíricas en Fedora 44 (GNOME 48 / Wayland + XWayland):**
+  - Aplicación de Input Region (`cairo::Region` + `gtk_widget_input_shape_combine_region`): 1.55 µs a 4.53 µs para lotes de 1 a 100 rectángulos.
+  - Consumo CPU de Input Region en reposo: 0.00% (filtrado resuelto a nivel kernel/compositor mediante XShape o `wl_surface.set_input_region`).
+  - Polling en X11/XWayland: ~150 µs/consulta, 0.45% CPU a 30 Hz y 1.30% CPU a 60 Hz.
+  - Polling en Wayland nativo: Bloqueado (retorna `(0, 0)` fijo).
+- **Entregables generados:**
+  - `docs/adr/0002-click-through-strategy.md` aceptada con evidencia comparativa y snippet de implementación en Rust.
+  - `docs/ARCHITECTURE.md` actualizada con matriz de capacidades verificada con datos reales.
+  - `docs/ROADMAP.md` actualizado con T-303 en estado lista.
+  - `docs/tasks/T-303-dynamic-click-through.md` creada para la implementación de producción en F3.
+- **Siguiente paso:** T-303 implementará el bridge definitivo en producción cuando el motor Three.js esté listo en F2/F3.

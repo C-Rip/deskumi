@@ -94,20 +94,22 @@ type Rect = { x: number; y: number; w: number; h: number };
 Movimiento de ventana: usar la API JS `getCurrentWindow().startDragging()` (funciona en
 Wayland porque delega al compositor). `setPosition` solo si `caps.setPosition`.
 
-## Matriz de capacidades esperada (validar en T-103)
+## Matriz de capacidades validada (Spike T-103)
 
-| Capacidad                | X11 / XWayland      | Wayland nativo (GNOME)       | Wayland nativo (KDE)    | Windows          |
-| ------------------------ | ------------------- | ---------------------------- | ----------------------- | ---------------- |
-| Transparencia            | ✅ (con compositor) | ✅                           | ✅                      | ✅               |
-| Always-on-top            | ✅                  | ❌ (solo el usuario)         | ⚠️ (reglas de KWin)     | ✅               |
-| Cursor global            | ✅                  | ❌                           | ❌                      | ✅               |
-| Input region             | ✅ (XShape)         | ✅ (wl_surface input region) | ✅                      | ⚠️ (por validar) |
-| Mover ventana por código | ✅                  | ❌ (`startDragging` sí)      | ❌ (`startDragging` sí) | ✅               |
+| Capacidad                | X11 / XWayland                         | Wayland nativo (GNOME)                        | Wayland nativo (KDE)                          | Windows          |
+| ------------------------ | -------------------------------------- | --------------------------------------------- | --------------------------------------------- | ---------------- |
+| Transparencia            | ✅ (con compositor)                    | ✅                                            | ✅                                            | ✅               |
+| Always-on-top            | ✅                                     | ❌ (solo el usuario)                          | ⚠️ (reglas de KWin)                           | ✅               |
+| Cursor global            | ✅ (~150 µs/query, 0.45% CPU a 30 Hz)  | ❌ (bloqueado por protocolo, Tao retorna 0,0) | ❌ (bloqueado por protocolo, Tao retorna 0,0) | ✅               |
+| Input region             | ✅ (XShape, <5 µs/update, 0% CPU cont) | ✅ (wl_surface, <5 µs/update, 0% CPU cont)    | ✅ (wl_surface, <5 µs/update, 0% CPU cont)    | ⚠️ (por validar) |
+| Mover ventana por código | ✅                                     | ❌ (`startDragging` sí)                       | ❌ (`startDragging` sí)                       | ✅               |
+
+> **Evidencia T-103:** Medido en Fedora 44 (GNOME 48, Wayland + XWayland, Intel HD 630). Input region aplica sobre `cairo::Region` + `gtk_widget_input_shape_combine_region` tanto en XWayland (vía XShape) como en Wayland nativo (vía `wl_surface.set_input_region`), requiriendo menos de 5 microsegundos por lote de 1 a 100 rectángulos y consumo nulo de CPU en reposo. El cursor global está completamente bloqueado en Wayland nativo por arquitectura de seguridad, descartando el polling de cursor como solución multiplataforma.
 
 ## Decisiones
 
 Ver [docs/adr/](adr/). Resumen:
 
 - [ADR-0001](adr/0001-tauri-v2-threejs-vrm.md) — Tauri v2 + Three.js + three-vrm.
-- [ADR-0002](adr/0002-click-through-strategy.md) — Estrategia de click-through (**propuesta**, la cierra T-103).
+- [ADR-0002](adr/0002-click-through-strategy.md) — Estrategia de click-through (**aceptada** en T-103).
 - [ADR-0003](adr/0003-xwayland-default-on-linux.md) — XWayland por defecto en Linux (**propuesta**).
