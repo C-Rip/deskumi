@@ -24,9 +24,11 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
         .show_menu_on_left_click(false)
         .tooltip("Deskumi");
 
-    if let Some(icon) = app.default_window_icon() {
-        builder = builder.icon(icon.clone());
-    }
+    let icon = app.default_window_icon().cloned().unwrap_or_else(|| {
+        tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))
+            .expect("Failed to load embedded tray icon 32x32.png")
+    });
+    builder = builder.icon(icon);
 
     builder
         .on_menu_event(move |app: &AppHandle<Wry>, event| match event.id.as_ref() {
