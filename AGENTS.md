@@ -23,7 +23,8 @@ transparente, siempre encima, con click-through en las zonas vacías.
    `linux-overlay-troubleshooting`.
 
 ## Reglas duras
-- **Una tarea = una rama = un PR.** Nunca commits directos a `main`.
+- **Una tarea = una rama = un PR hacia `dev`.** Nunca commits directos a `main` ni `dev`.
+- `main` solo recibe merges desde `dev` cuando hay releases estables etiquetados.
 - **Conventional Commits** obligatorios (ver skill `git-workflow`). El hook
   `.githooks/commit-msg` lo valida.
 - **No inventes APIs.** Si no estás seguro de una firma de Tauri v2 / three-vrm,

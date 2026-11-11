@@ -3,9 +3,10 @@
 Aplica igual para humanos y agentes de IA. El detalle operativo está en la skill
 [`git-workflow`](.agents/skills/git-workflow/SKILL.md).
 
-## Modelo de ramas: trunk-based
-- `main` siempre compila y está protegida. Solo entra código vía PR con **squash merge**.
-- Ramas cortas (idealmente < 2 días) desde `main`:
+## Modelo de ramas (Gitflow / Trunk híbrido con dev)
+- `main` contiene el código estable de producción / releases. Solo entra código desde `dev` mediante release PRs y tags `v*`.
+- `dev` es la rama de integración activa. Todos los PRs de tareas se abren hacia `dev`.
+- Ramas cortas desde `dev`:
 
 | Prefijo | Uso | Ejemplo |
 | --- | --- | --- |
@@ -41,14 +42,14 @@ Activa la validación local: `git config core.hooksPath .githooks`.
 ## Trabajo en paralelo con varios agentes
 Cada agente trabaja en su **propio git worktree** para no pisarse:
 ```bash
-git worktree add ../de-T-202 -b feat/T-202-vrm-loader main
+git worktree add ../deskumi-T-202 -b feat/T-202-vrm-loader dev
 ```
 Reglas para evitar conflictos:
 1. Reclama la tarea en su tarjeta (`Estado: en progreso`, `Asignado: <agente>`) en tu rama.
 2. Respeta las dependencias declaradas en la tarjeta (`Depende de`).
 3. Archivos "calientes" (`package.json`, `Cargo.toml`, `tauri.conf.json`,
    `src/main.ts`, `src-tauri/src/lib.rs`): cambios mínimos y rebase frecuente.
-4. Antes de abrir PR: `git fetch && git rebase origin/main`.
+4. Antes de abrir PR: `git fetch && git rebase origin/dev`.
 
 ## Versionado y releases
 - [SemVer](https://semver.org/lang/es/). Mientras sea `0.x`, cambios de minor pueden romper.

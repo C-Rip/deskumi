@@ -22,10 +22,14 @@ worktree="$(dirname "$repo_root")/${repo_name}-${task_id}"
 
 cd "$repo_root"
 
-base="main"
+base="dev"
 if git remote get-url origin >/dev/null 2>&1; then
-  git fetch origin main --quiet
-  base="origin/main"
+  git fetch origin dev --quiet 2>/dev/null || git fetch origin main --quiet
+  if git show-ref --verify --quiet "refs/remotes/origin/dev"; then
+    base="origin/dev"
+  else
+    base="origin/main"
+  fi
 fi
 
 if git show-ref --verify --quiet "refs/heads/${branch}"; then
