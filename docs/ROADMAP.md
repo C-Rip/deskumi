@@ -84,8 +84,8 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                           | Depende de   | Estado |
 | ----- | ------------------------------------------------------------------------------- | ------------ | ------ |
-| T-501 | Bundles Linux: `.rpm`, `.deb`, `.AppImage`                                      | F4           | ⬜     |
-| T-502 | Build Windows (`.msi`/NSIS) en CI + verificación de transparencia/click-through | F4           | ⬜     |
+| T-501 | Bundles Linux: `.rpm`, `.deb`, `.AppImage`                                      | F4           | ✅     |
+| T-502 | Build Windows (`.msi`/NSIS) en CI + verificación de transparencia/click-through | F4           | ✅     |
 | T-503 | Workflow de release por tag `v*` con artefactos y CHANGELOG                     | T-501        | ⬜     |
 | T-504 | Pasada completa de [QA.md](QA.md) en los 4 entornos objetivo                    | T-501, T-502 | ⬜     |
 | T-505 | Presupuesto de rendimiento verificado (ver abajo)                               | T-504        | ⬜     |
