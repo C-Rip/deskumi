@@ -11,9 +11,14 @@ pub const MENU_CLEAR_AVATAR: &str = "tray_clear_avatar";
 pub const MENU_QUIT: &str = "tray_quit";
 
 pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
-    let toggle_item =
-        MenuItem::with_id(app, MENU_TOGGLE_VISIBILITY, "Ocultar / Mostrar", true, None::<&str>)
-            .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
+    let toggle_item = MenuItem::with_id(
+        app,
+        MENU_TOGGLE_VISIBILITY,
+        "Ocultar / Mostrar",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
 
     let load_avatar_item = MenuItem::with_id(
         app,
@@ -24,20 +29,24 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
     )
     .map_err(|e| AppError::Platform(format!("Failed to create tray load avatar item: {e}")))?;
 
-    let clear_avatar_item = MenuItem::with_id(
-        app,
-        MENU_CLEAR_AVATAR,
-        "Quitar avatar",
-        true,
-        None::<&str>,
-    )
-    .map_err(|e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")))?;
+    let clear_avatar_item =
+        MenuItem::with_id(app, MENU_CLEAR_AVATAR, "Quitar avatar", true, None::<&str>).map_err(
+            |e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")),
+        )?;
 
     let quit_item = MenuItem::with_id(app, MENU_QUIT, "Salir de Deskumi", true, None::<&str>)
         .map_err(|e| AppError::Platform(format!("Failed to create tray quit item: {e}")))?;
 
-    let menu = Menu::with_items(app, &[&toggle_item, &load_avatar_item, &clear_avatar_item, &quit_item])
-        .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &toggle_item,
+            &load_avatar_item,
+            &clear_avatar_item,
+            &quit_item,
+        ],
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
@@ -88,8 +97,10 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
 pub fn toggle_main_window_visibility(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(is_visible) = window.is_visible() {
+            use tauri::Emitter;
             if is_visible {
                 let _ = window.hide();
+                let _ = app.emit("tray-visibility-changed", false);
             } else {
                 // When unhiding, explicitly restore position if it was shifted by the window manager
                 if let Ok(pos) = window.outer_position() {
@@ -111,6 +122,7 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
                     });
                 }
                 let _ = window.set_focus();
+                let _ = app.emit("tray-visibility-changed", true);
             }
         }
     }
