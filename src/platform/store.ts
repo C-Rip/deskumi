@@ -14,6 +14,8 @@ export interface AppConfig {
   fpsCap: number;
   /** Active VRM avatar identifier or path */
   avatarPath: string | null;
+  /** Active VRMA animation file path */
+  vrmaPath: string | null;
 }
 
 /**
@@ -23,7 +25,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   windowX: null,
   windowY: null,
   fpsCap: 30,
-  avatarPath: null
+  avatarPath: null,
+  vrmaPath: null
 };
 
 export const SETTINGS_FILE = "settings.json";

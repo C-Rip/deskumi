@@ -8,12 +8,19 @@ pub const TRAY_ID: &str = "deskumi-main-tray";
 pub const MENU_TOGGLE_VISIBILITY: &str = "tray_toggle_visibility";
 pub const MENU_LOAD_AVATAR: &str = "tray_load_avatar";
 pub const MENU_CLEAR_AVATAR: &str = "tray_clear_avatar";
+pub const MENU_LOAD_VRMA: &str = "tray_load_vrma";
+pub const MENU_STOP_VRMA: &str = "tray_stop_vrma";
 pub const MENU_QUIT: &str = "tray_quit";
 
 pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
-    let toggle_item =
-        MenuItem::with_id(app, MENU_TOGGLE_VISIBILITY, "Ocultar / Mostrar", true, None::<&str>)
-            .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
+    let toggle_item = MenuItem::with_id(
+        app,
+        MENU_TOGGLE_VISIBILITY,
+        "Ocultar / Mostrar",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
 
     let load_avatar_item = MenuItem::with_id(
         app,
@@ -24,20 +31,44 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
     )
     .map_err(|e| AppError::Platform(format!("Failed to create tray load avatar item: {e}")))?;
 
-    let clear_avatar_item = MenuItem::with_id(
+    let clear_avatar_item =
+        MenuItem::with_id(app, MENU_CLEAR_AVATAR, "Quitar avatar", true, None::<&str>).map_err(
+            |e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")),
+        )?;
+
+    let load_vrma_item = MenuItem::with_id(
         app,
-        MENU_CLEAR_AVATAR,
-        "Quitar avatar",
+        MENU_LOAD_VRMA,
+        "Cargar animación (.vrma)...",
         true,
         None::<&str>,
     )
-    .map_err(|e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")))?;
+    .map_err(|e| AppError::Platform(format!("Failed to create tray load vrma item: {e}")))?;
+
+    let stop_vrma_item = MenuItem::with_id(
+        app,
+        MENU_STOP_VRMA,
+        "Detener animación (.vrma)",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray stop vrma item: {e}")))?;
 
     let quit_item = MenuItem::with_id(app, MENU_QUIT, "Salir de Deskumi", true, None::<&str>)
         .map_err(|e| AppError::Platform(format!("Failed to create tray quit item: {e}")))?;
 
-    let menu = Menu::with_items(app, &[&toggle_item, &load_avatar_item, &clear_avatar_item, &quit_item])
-        .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &toggle_item,
+            &load_avatar_item,
+            &clear_avatar_item,
+            &load_vrma_item,
+            &stop_vrma_item,
+            &quit_item,
+        ],
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
@@ -62,6 +93,14 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
             MENU_CLEAR_AVATAR => {
                 use tauri::Emitter;
                 let _ = app.emit("tray-request-clear-avatar", ());
+            }
+            MENU_LOAD_VRMA => {
+                use tauri::Emitter;
+                let _ = app.emit("tray-request-load-vrma", ());
+            }
+            MENU_STOP_VRMA => {
+                use tauri::Emitter;
+                let _ = app.emit("tray-request-stop-vrma", ());
             }
             MENU_QUIT => {
                 app.exit(0);

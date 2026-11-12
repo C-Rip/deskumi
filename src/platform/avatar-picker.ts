@@ -12,6 +12,7 @@ import { LookAtSystem } from "../engine/LookAtSystem";
 import { ReactionSystem } from "../engine/ReactionSystem";
 import { AvatarInputRegionSystem } from "./input-region";
 import { defaultConfigManager } from "./store";
+import { pickVRMAFile } from "../engine/VRMAPlayer";
 import type { SceneManager } from "../engine/SceneManager";
 
 export interface LoadedAvatarContext {
@@ -187,6 +188,23 @@ export async function pickAndSwitchAvatar(
     // Save to configuration store
     await defaultConfigManager.set("avatarPath", selectedPath);
     console.log(`[deskumi] Switched avatar to: ${selectedPath}`);
+
+    // Replay saved VRMA animation on new avatar if configured
+    const savedVrma = defaultConfigManager.get().vrmaPath;
+    if (savedVrma) {
+      try {
+        await newContext.animationSystem.vrmaPlayer.loadAndPlay(savedVrma, {
+          loop: true,
+          fadeInDuration: 0.25
+        });
+      } catch (err) {
+        console.warn(
+          `[deskumi] Failed to replay VRMA ${savedVrma} on new avatar:`,
+          err
+        );
+      }
+    }
+
     return true;
   } catch (err: unknown) {
     console.error("[deskumi] Failed to load chosen VRM model:", err);
@@ -212,3 +230,40 @@ export async function clearAvatar(
   await defaultConfigManager.delete("avatarPath");
   console.log("[deskumi] Avatar cleared from scene and store");
 }
+
+/**
+ * Prompt user to select a .vrma file, play it on current avatar, and save to store.
+ */
+export async function pickAndPlayVRMA(
+  context: LoadedAvatarContext
+): Promise<boolean> {
+  const selectedPath = await pickVRMAFile();
+  if (!selectedPath) {
+    return false;
+  }
+
+  try {
+    console.log(`[deskumi] Loading chosen VRMA animation: ${selectedPath}`);
+    await context.animationSystem.vrmaPlayer.loadAndPlay(selectedPath, {
+      loop: true,
+      fadeInDuration: 0.25
+    });
+    await defaultConfigManager.set("vrmaPath", selectedPath);
+    console.log(`[deskumi] VRMA animation playing and saved: ${selectedPath}`);
+    return true;
+  } catch (err: unknown) {
+    console.error("[deskumi] Failed to load chosen VRMA animation:", err);
+    return false;
+  }
+}
+
+/**
+ * Stops any currently playing VRMA animation and clears vrmaPath from store.
+ */
+export async function stopVRMA(context: LoadedAvatarContext): Promise<void> {
+  context.animationSystem.vrmaPlayer.stop(0.25);
+  await defaultConfigManager.delete("vrmaPath");
+  console.log("[deskumi] Stopped VRMA animation and cleared from store");
+}
+
+export { pickVRMAFile };

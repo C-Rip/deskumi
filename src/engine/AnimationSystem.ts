@@ -3,6 +3,7 @@ import type { VRM } from "@pixiv/three-vrm";
 import type { System } from "./types";
 import { BlinkController } from "./BlinkController";
 import type { BlinkControllerOptions } from "./BlinkController";
+import { VRMAPlayer } from "./VRMAPlayer";
 
 export interface AnimationSystemOptions {
   /**
@@ -68,6 +69,11 @@ export interface AnimationSystemOptions {
    * Pre-configured BlinkController instance.
    */
   blinkController?: BlinkController;
+
+  /**
+   * Optional pre-configured VRMAPlayer instance.
+   */
+  vrmaPlayer?: VRMAPlayer;
 }
 
 /**
@@ -81,6 +87,7 @@ export interface AnimationSystemOptions {
 export class AnimationSystem implements System {
   public readonly vrm: VRM;
   public readonly blinkController: BlinkController;
+  public readonly vrmaPlayer: VRMAPlayer;
 
   public enableIdle: boolean;
   public enableBlink: boolean;
@@ -95,6 +102,7 @@ export class AnimationSystem implements System {
 
   private elapsedTime = 0;
   private isDisposed = false;
+  private wasVRMAPlaying = false;
 
   // Normalized bone node references
   private readonly chestNode: THREE.Object3D | null;
@@ -124,6 +132,7 @@ export class AnimationSystem implements System {
 
     this.blinkController =
       options.blinkController ?? new BlinkController(options.blinkOptions);
+    this.vrmaPlayer = options.vrmaPlayer ?? new VRMAPlayer(vrm);
 
     // Retrieve normalized bone nodes if humanoid is defined
     this.chestNode =
@@ -188,8 +197,19 @@ export class AnimationSystem implements System {
 
     this.elapsedTime += dt;
 
-    // 1. Procedural Idle Motion (breathing + hip sway)
-    if (this.enableIdle) {
+    // 1. Advance VRMA animation mixer (if any clip is loaded/playing)
+    this.vrmaPlayer.update(dt);
+    const isVRMAPlaying = this.vrmaPlayer.isPlaying;
+
+    // Transitioning from playing to idle: restore base pose cleanly
+    if (this.wasVRMAPlaying && !isVRMAPlaying) {
+      this.restoreBasePose(this.relaxArms);
+    }
+    this.wasVRMAPlaying = isVRMAPlaying;
+
+    // 2. Procedural Idle Motion (breathing + hip sway + relax arms)
+    // Paused when VRMA is actively playing so bone tracks drive humanoid without fighting
+    if (this.enableIdle && !isVRMAPlaying) {
       if (this.chestNode) {
         this.chestNode.rotation.x =
           this.baseChestRotation.x +
@@ -215,14 +235,41 @@ export class AnimationSystem implements System {
       }
     }
 
-    // 2. Procedural Blink Expression
+    // 3. Procedural Blink Expression
     if (this.enableBlink && this.vrm.expressionManager) {
       const blinkValue = this.blinkController.update(dt);
       this.vrm.expressionManager.setValue("blink", blinkValue);
     }
 
-    // 3. VRM Core & Secondary Physics Update (spring bones, constraints, lookAt, morphs)
+    // 4. VRM Core & Secondary Physics Update (spring bones, constraints, lookAt, morphs)
     this.vrm.update(dt);
+  }
+
+  /**
+   * Restores bones to their initial base rotations (optionally applying arm relaxation).
+   * @param includeRelaxArms Whether to re-apply arm relaxation angle if relaxArms is enabled.
+   */
+  public restoreBasePose(includeRelaxArms = false): void {
+    if (this.chestNode) {
+      this.chestNode.rotation.copy(this.baseChestRotation);
+    }
+    if (this.hipsNode) {
+      this.hipsNode.rotation.copy(this.baseHipsRotation);
+    }
+    if (this.leftUpperArmNode) {
+      this.leftUpperArmNode.rotation.copy(this.baseLeftArmRotation);
+      if (includeRelaxArms && this.relaxArms) {
+        this.leftUpperArmNode.rotation.z =
+          this.baseLeftArmRotation.z + this.leftArmAngleZ;
+      }
+    }
+    if (this.rightUpperArmNode) {
+      this.rightUpperArmNode.rotation.copy(this.baseRightArmRotation);
+      if (includeRelaxArms && this.relaxArms) {
+        this.rightUpperArmNode.rotation.z =
+          this.baseRightArmRotation.z + this.rightArmAngleZ;
+      }
+    }
   }
 
   /**
@@ -234,19 +281,8 @@ export class AnimationSystem implements System {
     }
     this.isDisposed = true;
 
-    // Restore bones to initial rotations
-    if (this.chestNode) {
-      this.chestNode.rotation.copy(this.baseChestRotation);
-    }
-    if (this.hipsNode) {
-      this.hipsNode.rotation.copy(this.baseHipsRotation);
-    }
-    if (this.leftUpperArmNode) {
-      this.leftUpperArmNode.rotation.copy(this.baseLeftArmRotation);
-    }
-    if (this.rightUpperArmNode) {
-      this.rightUpperArmNode.rotation.copy(this.baseRightArmRotation);
-    }
+    this.vrmaPlayer.dispose();
+    this.restoreBasePose(false);
 
     // Reset blink expression
     if (this.vrm.expressionManager) {

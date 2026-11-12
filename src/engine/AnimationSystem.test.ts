@@ -370,4 +370,54 @@ describe("AnimationSystem procedural motion and integration", () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(system.time).toBe(0);
   });
+
+  it("pauses procedural idle bone overrides while a VRMA clip is actively playing", () => {
+    const { vrm, chestNode, hipsNode, updateSpy } = createMockVRM();
+    const system = new AnimationSystem(vrm);
+
+    const clip = new THREE.AnimationClip("TestVRMA", 1.0, []);
+    system.vrmaPlayer.playClip(clip);
+
+    expect(system.vrmaPlayer.isPlaying).toBe(true);
+
+    // Manually set chest and hips to custom values as if mixer animated them
+    chestNode.rotation.x = 0.55;
+    hipsNode.rotation.z = 0.88;
+
+    system.update(0.1);
+
+    // Bone rotations should NOT be overwritten by procedural idle math
+    expect(chestNode.rotation.x).toBeCloseTo(0.55);
+    expect(hipsNode.rotation.z).toBeCloseTo(0.88);
+
+    // VRM physics and blink updates still run
+    expect(updateSpy).toHaveBeenCalledWith(0.1);
+  });
+
+  it("restores base pose and resumes procedural idle when VRMA stops playing", () => {
+    const { vrm, chestNode, hipsNode } = createMockVRM();
+    chestNode.rotation.set(0, 0, 0);
+    hipsNode.rotation.set(0, 0, 0);
+
+    const system = new AnimationSystem(vrm);
+    const clip = new THREE.AnimationClip("TestVRMA", 1.0, []);
+    system.vrmaPlayer.playClip(clip);
+
+    // Simulate bone offset from clip
+    chestNode.rotation.x = 0.77;
+    hipsNode.rotation.z = 0.66;
+
+    // Stop VRMA playback
+    system.vrmaPlayer.stop(0);
+    expect(system.vrmaPlayer.isPlaying).toBe(false);
+
+    // First update after stop: should restore base pose and resume procedural idle
+    system.update(0.1);
+
+    // Chest has now resumed procedural breathing around base rotation (0)
+    expect(chestNode.rotation.x).not.toBeCloseTo(0.77);
+    expect(chestNode.rotation.x).toBeCloseTo(
+      Math.sin(0.1 * system.breathingSpeed) * system.breathingAmplitude
+    );
+  });
 });

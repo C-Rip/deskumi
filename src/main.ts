@@ -12,6 +12,8 @@ import {
   setupAvatarInScene,
   pickAndSwitchAvatar,
   clearAvatar,
+  pickAndPlayVRMA,
+  stopVRMA,
   type LoadedAvatarContext
 } from "./platform/avatar-picker";
 import { listen } from "@tauri-apps/api/event";
@@ -109,6 +111,22 @@ void listen("tray-request-clear-avatar", () => {
   );
 });
 
+// Listen for "tray-request-load-vrma" event from native tray menu
+void listen("tray-request-load-vrma", () => {
+  console.log("[deskumi] Received tray-request-load-vrma event");
+  if (currentAvatarContext) {
+    void pickAndPlayVRMA(currentAvatarContext);
+  }
+});
+
+// Listen for "tray-request-stop-vrma" event from native tray menu
+void listen("tray-request-stop-vrma", () => {
+  console.log("[deskumi] Received tray-request-stop-vrma event");
+  if (currentAvatarContext) {
+    void stopVRMA(currentAvatarContext);
+  }
+});
+
 // Load configured avatar or fallback to official sample avatar
 async function initAvatar(): Promise<void> {
   const config = await defaultConfigManager.load();
@@ -120,7 +138,6 @@ async function initAvatar(): Promise<void> {
       const { vrm, blobUrl } = await loadAvatarModel(avatarPath);
       currentAvatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
       console.log("[deskumi] Loaded saved avatar successfully");
-      return;
     } catch (err) {
       console.warn(
         `[deskumi] Failed to load saved avatar at ${avatarPath}, falling back to sample:`,
@@ -129,11 +146,33 @@ async function initAvatar(): Promise<void> {
     }
   }
 
-  // Fallback to sample avatar
-  console.log("[deskumi] Loading default sample VRM");
-  const { vrm } = await loadAvatarModel(sampleAvatarUrl);
-  currentAvatarContext = setupAvatarInScene(vrm, sceneManager);
-  console.log("[deskumi] Default sample VRM loaded successfully");
+  // Fallback to sample avatar if saved avatar wasn't loaded
+  if (!currentAvatarContext) {
+    console.log("[deskumi] Loading default sample VRM");
+    const { vrm } = await loadAvatarModel(sampleAvatarUrl);
+    currentAvatarContext = setupAvatarInScene(vrm, sceneManager);
+    console.log("[deskumi] Default sample VRM loaded successfully");
+  }
+
+  // Load configured VRMA animation if present
+  if (config.vrmaPath && currentAvatarContext) {
+    try {
+      console.log(`[deskumi] Loading saved VRMA animation: ${config.vrmaPath}`);
+      await currentAvatarContext.animationSystem.vrmaPlayer.loadAndPlay(
+        config.vrmaPath,
+        {
+          loop: true,
+          fadeInDuration: 0
+        }
+      );
+      console.log("[deskumi] Loaded saved VRMA animation successfully");
+    } catch (err) {
+      console.warn(
+        `[deskumi] Failed to load saved VRMA animation at ${config.vrmaPath}:`,
+        err
+      );
+    }
+  }
 }
 
 initAvatar().catch((err: unknown) => {

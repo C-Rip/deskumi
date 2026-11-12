@@ -21,11 +21,13 @@ describe("ConfigManager", () => {
     await configManager.set("fpsCap", 60);
     await configManager.set("windowX", 250);
     await configManager.set("windowY", 400);
+    await configManager.set("vrmaPath", "/path/to/animation.vrma");
 
     const config = configManager.get();
     expect(config.fpsCap).toBe(60);
     expect(config.windowX).toBe(250);
     expect(config.windowY).toBe(400);
+    expect(config.vrmaPath).toBe("/path/to/animation.vrma");
   });
 
   it("safely handles restoreWindowPosition in test/web environment without errors", async () => {
