@@ -22,12 +22,14 @@ describe("ConfigManager", () => {
     await configManager.set("windowX", 250);
     await configManager.set("windowY", 400);
     await configManager.set("vrmaPath", "/path/to/animation.vrma");
+    await configManager.set("avatarScale", 1.5);
 
     const config = configManager.get();
     expect(config.fpsCap).toBe(60);
     expect(config.windowX).toBe(250);
     expect(config.windowY).toBe(400);
     expect(config.vrmaPath).toBe("/path/to/animation.vrma");
+    expect(config.avatarScale).toBe(1.5);
   });
 
   it("safely handles restoreWindowPosition in test/web environment without errors", async () => {

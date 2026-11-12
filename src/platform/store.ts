@@ -18,6 +18,8 @@ export interface AppConfig {
   vrmaPath: string | null;
   /** Launch application automatically on system startup */
   autostart: boolean;
+  /** Avatar visual scale multiplier (0.5x - 2.0x, default 1.0) */
+  avatarScale: number;
 }
 
 /**
@@ -30,7 +32,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   avatarPath: null,
   avatarPath: null,
   vrmaPath: null,
-  autostart: false
+  autostart: false,
+  avatarScale: 1.0
 };
 
 export const SETTINGS_FILE = "settings.json";

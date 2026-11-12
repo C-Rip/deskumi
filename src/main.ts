@@ -6,7 +6,8 @@ import { setupWindowDrag } from "./platform/drag";
 import {
   defaultConfigManager,
   restoreWindowPosition,
-  saveWindowPosition
+  saveWindowPosition,
+  type AppConfig
 } from "./platform/store";
 import { syncAutostartWithConfig } from "./platform/autostart";
 import {
@@ -16,9 +17,11 @@ import {
   clearAvatar,
   pickAndPlayVRMA,
   stopVRMA,
+  teardownAvatarContext,
   type LoadedAvatarContext
 } from "./platform/avatar-picker";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
@@ -158,6 +161,66 @@ void listen<boolean>("tray-autostart-changed", (event) => {
   void defaultConfigManager.set("autostart", event.payload);
 });
 
+// Listen for "settings-updated" event from settings window
+void listen<AppConfig>("settings-updated", async (event) => {
+  const newConfig = event.payload;
+  console.log("[deskumi] Received settings-updated event:", newConfig);
+
+  // 1. Update FPS Cap
+  if (typeof newConfig.fpsCap === "number") {
+    setActiveFps(newConfig.fpsCap);
+  }
+
+  // 2. Update Avatar Scale
+  if (typeof newConfig.avatarScale === "number" && currentAvatarContext) {
+    currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
+  }
+
+  // 3. Update Avatar Model if changed
+  const storedConfig = await defaultConfigManager.load();
+  if (
+    newConfig.avatarPath !== undefined &&
+    newConfig.avatarPath !== storedConfig.avatarPath
+  ) {
+    if (newConfig.avatarPath === null) {
+      void clearAvatar(
+        sceneManager,
+        () => currentAvatarContext,
+        (ctx) => {
+          currentAvatarContext = ctx;
+        }
+      );
+    } else {
+      try {
+        const { vrm, blobUrl } = await loadAvatarModel(newConfig.avatarPath);
+        if (currentAvatarContext) {
+          teardownAvatarContext(currentAvatarContext, sceneManager);
+        }
+        currentAvatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+        if (typeof newConfig.avatarScale === "number") {
+          currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
+        }
+      } catch (err) {
+        console.warn(
+          "[deskumi] Failed to load updated avatar from settings:",
+          err
+        );
+      }
+    }
+  }
+
+  // 4. Reset Window Position if requested
+  if (newConfig.windowX === null && newConfig.windowY === null) {
+    try {
+      const win = getCurrentWindow();
+      await win.center();
+      console.log("[deskumi] Window position centered on reset");
+    } catch (err) {
+      console.warn("[deskumi] Failed to center window on reset:", err);
+    }
+  }
+});
+
 // Load configured avatar or fallback to official sample avatar
 async function initAvatar(): Promise<void> {
   const config = await defaultConfigManager.load();
@@ -166,12 +229,18 @@ async function initAvatar(): Promise<void> {
   }
 
   const avatarPath = config.avatarPath;
+  const avatarScale = config.avatarScale ?? 1.0;
+
+  if (config.fpsCap) {
+    sceneManager.fpsCap = config.fpsCap;
+  }
 
   if (avatarPath) {
     try {
       console.log(`[deskumi] Attempting to load saved avatar: ${avatarPath}`);
       const { vrm, blobUrl } = await loadAvatarModel(avatarPath);
       currentAvatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+      currentAvatarContext.vrm.scene.scale.setScalar(avatarScale);
       console.log("[deskumi] Loaded saved avatar successfully");
     } catch (err) {
       console.warn(
@@ -186,6 +255,7 @@ async function initAvatar(): Promise<void> {
     console.log("[deskumi] Loading default sample VRM");
     const { vrm } = await loadAvatarModel(sampleAvatarUrl);
     currentAvatarContext = setupAvatarInScene(vrm, sceneManager);
+    currentAvatarContext.vrm.scene.scale.setScalar(avatarScale);
     console.log("[deskumi] Default sample VRM loaded successfully");
   }
 

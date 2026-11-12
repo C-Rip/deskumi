@@ -9,6 +9,7 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 ### Added
 
 - Soporte para animaciones retargeteables `.vrma` (`@pixiv/three-vrm-animation`) y selector (T-404): `VRMAPlayer` para carga y reproducción de animaciones `.vrma` con `THREE.AnimationMixer`, crossfading (`fadeIn`/`fadeOut`), modo loop y one-shot, lectura de archivos locales en runtime Tauri, selector nativo en System Tray (`Cargar animación (.vrma)...` y `Detener animación (.vrma)`), persistencia de `vrmaPath` en `settings.json`, y pausa de idle procedural en `AnimationSystem` durante la reproducción.
+- Ventana secundaria de ajustes (T-407): Ventana nativa bajo demanda (460x540 px) abrible desde el System Tray ("Ajustes...") y mediante comando Tauri IPC `open_settings_window`, panel de configuración en Vanilla TypeScript + CSS Custom Properties (`settings.html` + `SettingsPanel.ts`), persistencia en `tauri-plugin-store` y sincronización en tiempo real con la ventana principal mediante evento Tauri `"settings-updated"` (avatar, escala 0.5x-2.0x, límite 15/30/60 FPS y restablecimiento de posición).
 
 - Dynamic click-through input region bridge (T-303): comando IPC en Rust `set_input_region` con `cairo::Region` y `gtk::WidgetExt::input_shape_combine_region` despachado en el hilo principal (`run_on_main_thread`), servicio TypeScript `InputRegionManager` con throttling (~15 Hz) y deduplicación, cálculo proyectado de silueta/bounding box y `AvatarInputRegionSystem` en `src/main.ts`.
 

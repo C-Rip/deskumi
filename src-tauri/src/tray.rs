@@ -12,6 +12,7 @@ pub const MENU_CLEAR_AVATAR: &str = "tray_clear_avatar";
 pub const MENU_LOAD_VRMA: &str = "tray_load_vrma";
 pub const MENU_STOP_VRMA: &str = "tray_stop_vrma";
 pub const MENU_TOGGLE_AUTOSTART: &str = "tray_toggle_autostart";
+pub const MENU_OPEN_SETTINGS: &str = "tray_open_settings";
 pub const MENU_QUIT: &str = "tray_quit";
 
 pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
@@ -66,6 +67,10 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
     )
     .map_err(|e| AppError::Platform(format!("Failed to create tray autostart item: {e}")))?;
 
+    let settings_item =
+        MenuItem::with_id(app, MENU_OPEN_SETTINGS, "Ajustes...", true, None::<&str>)
+            .map_err(|e| AppError::Platform(format!("Failed to create tray settings item: {e}")))?;
+
     let quit_item = MenuItem::with_id(app, MENU_QUIT, "Salir de Deskumi", true, None::<&str>)
         .map_err(|e| AppError::Platform(format!("Failed to create tray quit item: {e}")))?;
 
@@ -78,6 +83,7 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
             &load_vrma_item,
             &stop_vrma_item,
             &autostart_item,
+            &settings_item,
             &quit_item,
         ],
     )
@@ -138,6 +144,9 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
 
                 let _ = autostart_item_for_event.set_checked(final_enabled);
                 let _ = app.emit("tray-autostart-changed", final_enabled);
+            }
+            MENU_OPEN_SETTINGS => {
+                let _ = crate::settings_window::open_settings_window(app.clone());
             }
             }
             MENU_QUIT => {
