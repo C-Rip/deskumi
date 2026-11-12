@@ -8,6 +8,7 @@ import {
   restoreWindowPosition,
   saveWindowPosition
 } from "./platform/store";
+import { syncAutostartWithConfig } from "./platform/autostart";
 import {
   loadAvatarModel,
   setupAvatarInScene,
@@ -24,6 +25,9 @@ console.log("[deskumi] Initializing Deskumi transparent window");
 
 // Restore saved desktop position from store
 void restoreWindowPosition();
+
+// Synchronize OS autostart state with persisted configuration
+void syncAutostartWithConfig();
 
 // Disable default WebKit context menu (Inspect Element, Back, Reload, etc.)
 window.addEventListener("contextmenu", (event) => {
@@ -144,6 +148,14 @@ void listen("tray-request-stop-vrma", () => {
   if (currentAvatarContext) {
     void stopVRMA(currentAvatarContext);
   }
+});
+
+// Listen for "tray-autostart-changed" event from native tray menu
+void listen<boolean>("tray-autostart-changed", (event) => {
+  console.log(
+    `[deskumi] Received tray-autostart-changed event: ${String(event.payload)}`
+  );
+  void defaultConfigManager.set("autostart", event.payload);
 });
 
 // Load configured avatar or fallback to official sample avatar

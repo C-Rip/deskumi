@@ -16,6 +16,8 @@ export interface AppConfig {
   avatarPath: string | null;
   /** Active VRMA animation file path */
   vrmaPath: string | null;
+  /** Launch application automatically on system startup */
+  autostart: boolean;
 }
 
 /**
@@ -26,7 +28,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   windowY: null,
   fpsCap: 30,
   avatarPath: null,
-  vrmaPath: null
+  avatarPath: null,
+  vrmaPath: null,
+  autostart: false
 };
 
 export const SETTINGS_FILE = "settings.json";
