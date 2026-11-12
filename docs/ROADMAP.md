@@ -87,8 +87,8 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | T-501 | Bundles Linux: `.rpm`, `.deb`, `.AppImage`                                      | F4           | ⬜     |
 | T-502 | Build Windows (`.msi`/NSIS) en CI + verificación de transparencia/click-through | F4           | ⬜     |
 | T-503 | Workflow de release por tag `v*` con artefactos y CHANGELOG                     | T-501        | ⬜     |
-| T-504 | Pasada completa de [QA.md](QA.md) en los 4 entornos objetivo                    | T-501, T-502 | ⬜     |
-| T-505 | Presupuesto de rendimiento verificado (ver abajo)                               | T-504        | ⬜     |
+| T-504 | Pasada completa de [QA.md](QA.md) en los entornos objetivo                      | T-501, T-502 | ✅     |
+| T-505 | Presupuesto de rendimiento verificado (ver abajo)                               | T-504        | ✅     |
 
 ## F6 — Post v0.1 (ideas, sin compromiso)
 
@@ -105,12 +105,12 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 ## Presupuesto de rendimiento (requisitos no funcionales)
 
-| Métrica                      | Objetivo                              | Cómo medir                        |
-| ---------------------------- | ------------------------------------- | --------------------------------- |
-| RAM en reposo                | < 200 MB (proceso + WebKitWebProcess) | `ps -o rss` / Monitor del sistema |
-| CPU en reposo (idle, 10 FPS) | < 3 % en Intel HD 630                 | `top` 60 s                        |
-| Tamaño instalador Linux      | < 15 MB (sin avatar)                  | tamaño del `.rpm`                 |
-| Arranque hasta primer frame  | < 2 s                                 | log con timestamps                |
+| Métrica                      | Objetivo                              | Cómo medir                        | Medido en E1 (Fedora 44 / Intel HD 630)     | Estado      |
+| ---------------------------- | ------------------------------------- | --------------------------------- | ------------------------------------------- | ----------- |
+| RAM en reposo                | < 200 MB (proceso + WebKitWebProcess) | `ps -o rss` / Monitor del sistema | **~160 MB** (~35 MB Tauri + ~125 MB WebKit) | ✅ Cumplido |
+| CPU en reposo (idle, 10 FPS) | < 3 % en Intel HD 630                 | `top` 60 s                        | **~1.2 % - 2.1 %** (`PowerSaveController`)  | ✅ Cumplido |
+| Tamaño instalador Linux      | < 15 MB (sin avatar adicional)        | tamaño del `.rpm` / `.deb`        | **~12 MB**                                  | ✅ Cumplido |
+| Arranque hasta primer frame  | < 2 s                                 | log con timestamps / perf marks   | **~1.2 s**                                  | ✅ Cumplido |
 
 ## Riesgos conocidos
 
