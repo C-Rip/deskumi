@@ -8,6 +8,7 @@ describe("SceneManager", () => {
     return {
       domElement: { parentElement: null } as unknown as HTMLCanvasElement,
       render: vi.fn(),
+      clear: vi.fn(),
       setSize: vi.fn(),
       setClearColor: vi.fn(),
       setPixelRatio: vi.fn(),

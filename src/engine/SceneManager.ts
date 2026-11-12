@@ -82,10 +82,11 @@ export class SceneManager {
       this.renderer = new THREE.WebGLRenderer({
         alpha: true,
         antialias: true,
-        premultipliedAlpha: true,
+        premultipliedAlpha: false,
         canvas: options.canvas
       });
       this.renderer.setClearColor(0x000000, 0);
+      this.renderer.autoClear = true;
       const pixelRatio =
         options.pixelRatio ??
         (typeof window !== "undefined"
@@ -246,6 +247,7 @@ export class SceneManager {
    * Immediately renders the scene with the camera.
    */
   public render(): void {
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
   }
 
