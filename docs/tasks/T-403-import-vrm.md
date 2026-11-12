@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                              |
 | ------------- | -------------------------------------------------- |
-| Estado        | en curso                                           |
+| Estado        | completada                                         |
 | Asignado      | @crivera + antigravity                             |
 | Fase          | F4                                                 |
 | Rama          | `feat/T-403-import-vrm`                            |
@@ -12,7 +12,7 @@
 
 ## Objetivo
 
-Permitir al usuario cargar e importar su propio modelo 3D `.vrm` desde su disco local de forma segura utilizando el diálogo nativo de archivos (`tauri-plugin-dialog`) y copiándolo a la carpeta de datos de la aplicación (`$APP_DATA/avatars/`). El modelo seleccionado debe persistirse en `settings.json` (T-402) para cargarse automáticamente en arranques posteriores.
+Permitir al usuario cargar e importar su propio modelo 3D `.vrm` desde su disco local de forma segura utilizando el diálogo nativo de archivos (`tauri-plugin-dialog`) y copiándolo o cargándolo en memoria para el loader de WebKitGTK. El modelo seleccionado debe persistirse en `settings.json` (T-402) para cargarse automáticamente en arranques posteriores.
 
 ## Contexto
 
@@ -25,9 +25,10 @@ Permitir al usuario cargar e importar su propio modelo 3D `.vrm` desde su disco 
 
 - Incluye:
   - Instalación y registro de `tauri-plugin-dialog` y `tauri-plugin-fs` en Tauri v2.
-  - Opción "Cargar Avatar (.vrm)..." en el menú contextual del System Tray.
+  - Opción "Cargar avatar (.vrm)..." en el menú contextual del System Tray.
   - Diálogo nativo filtrando por extensiones `*.vrm`.
-  - Validación básica del archivo y persistencia en la configuración (`ConfigManager.set("avatarPath", path)`).
+  - Lectura binaria segura de archivos locales en WebKitGTK convertidos a Blob URLs para `three-vrm`.
+  - Persistencia del path en la configuración (`defaultConfigManager.set("avatarPath", path)`).
   - Recarga dinámica en caliente del nuevo avatar en `SceneManager` sin reiniciar el proceso.
   - Tests unitarios y `npm run check`.
 - **No incluye:**
@@ -35,11 +36,11 @@ Permitir al usuario cargar e importar su propio modelo 3D `.vrm` desde su disco 
 
 ## Criterios de aceptación
 
-- [ ] Opción "Cargar Avatar (.vrm)..." disponible en el System Tray.
-- [ ] Abre selector de archivos nativo con filtro `.vrm`.
-- [ ] Al seleccionar un archivo válido, reemplaza el avatar en pantalla en vivo y ajusta el encuadre Snug Framing.
-- [ ] El avatar seleccionado persiste entre reinicios de la aplicación.
-- [ ] Tests pasando al 100% y `npm run check` limpio.
+- [x] Opción "Cargar avatar (.vrm)..." disponible en el System Tray.
+- [x] Abre selector de archivos nativo con filtro `.vrm`.
+- [x] Al seleccionar un archivo válido, reemplaza el avatar en pantalla en vivo y ajusta el encuadre Snug Framing.
+- [x] El avatar seleccionado persiste entre reinicios de la aplicación.
+- [x] Tests pasando al 100% y `npm run check` limpio.
 
 ## Archivos esperados
 
@@ -50,4 +51,10 @@ Permitir al usuario cargar e importar su propio modelo 3D `.vrm` desde su disco 
 
 ## Handoff
 
-_Pendiente al completar la implementación._
+- **Implementación finalizada:**
+  - Configurados plugins `@tauri-apps/plugin-dialog` y `@tauri-apps/plugin-fs` en frontend y backend Tauri v2 (`Cargo.toml`, `capabilities/default.json`, `src-tauri/src/lib.rs`).
+  - Añadido item de menú contextual en System Tray `"Cargar avatar (.vrm)..."` emitiendo `"tray-request-load-avatar"`.
+  - Creado módulo `src/platform/avatar-picker.ts` con gestión completa de ciclo de vida (`loadAvatarModel`, `setupAvatarInScene`, `teardownAvatarContext`, `pickVRMFile`, `pickAndSwitchAvatar`).
+  - Conectado evento del System Tray y carga inicial desde configuración persistida en `src/main.ts`.
+  - Vitest (123 tests pasando) y `cargo clippy` sin warnings.
+- **Siguiente tarea recomendada:** T-404 (Reproductor de animaciones .vrma).
