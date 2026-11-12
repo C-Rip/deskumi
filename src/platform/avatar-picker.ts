@@ -31,18 +31,28 @@ export interface LoadedAvatarContext {
 export async function loadAvatarModel(
   pathOrUrl: string
 ): Promise<{ vrm: VRM; blobUrl?: string }> {
-  if (
-    isTauri() &&
-    !pathOrUrl.startsWith("http") &&
-    !pathOrUrl.startsWith("blob:") &&
-    !pathOrUrl.startsWith("data:")
-  ) {
-    // Read local file through Tauri FS plugin and convert to ObjectURL
-    const bytes = await readFile(pathOrUrl);
-    const blob = new Blob([bytes], { type: "application/octet-stream" });
-    const blobUrl = URL.createObjectURL(blob);
-    const vrm = await loadVRM(blobUrl);
-    return { vrm, blobUrl };
+  const isWebOrAsset =
+    pathOrUrl.startsWith("http://") ||
+    pathOrUrl.startsWith("https://") ||
+    pathOrUrl.startsWith("blob:") ||
+    pathOrUrl.startsWith("data:") ||
+    pathOrUrl.startsWith("/assets/") ||
+    pathOrUrl.startsWith("./assets/");
+
+  if (isTauri() && !isWebOrAsset) {
+    try {
+      // Read local file through Tauri FS plugin and convert to ObjectURL
+      const bytes = await readFile(pathOrUrl);
+      const blob = new Blob([bytes], { type: "application/octet-stream" });
+      const blobUrl = URL.createObjectURL(blob);
+      const vrm = await loadVRM(blobUrl);
+      return { vrm, blobUrl };
+    } catch (fsError) {
+      console.warn(
+        `[deskumi] Failed to read ${pathOrUrl} via Tauri fs, falling back to direct load:`,
+        fsError
+      );
+    }
   }
 
   const vrm = await loadVRM(pathOrUrl);
