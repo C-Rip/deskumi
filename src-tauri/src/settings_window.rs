@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 use crate::error::AppError;
 
@@ -13,10 +13,12 @@ pub fn open_settings_window(app: AppHandle) -> Result<(), AppError> {
     if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
         let _ = window.show();
         let _ = window.set_focus();
+        let _ = app.emit("settings-window-visibility", true);
         return Ok(());
     }
 
-    WebviewWindowBuilder::new(
+    let app_clone = app.clone();
+    let window = WebviewWindowBuilder::new(
         &app,
         SETTINGS_WINDOW_LABEL,
         WebviewUrl::App(SETTINGS_WINDOW_URL.into()),
@@ -29,6 +31,16 @@ pub fn open_settings_window(app: AppHandle) -> Result<(), AppError> {
     .center()
     .build()
     .map_err(|e| AppError::Platform(format!("Failed to build settings window: {e}")))?;
+
+    // Notify frontend that settings window is opened/active
+    let _ = app.emit("settings-window-visibility", true);
+
+    let app_for_events = app_clone.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Destroyed = event {
+            let _ = app_for_events.emit("settings-window-visibility", false);
+        }
+    });
 
     Ok(())
 }

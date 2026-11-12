@@ -162,6 +162,19 @@ void listen<boolean>("tray-autostart-changed", (event) => {
   void defaultConfigManager.set("autostart", event.payload);
 });
 
+// Listen for "settings-window-visibility" to pause avatar rendering when settings is open
+void listen<boolean>("settings-window-visibility", (event) => {
+  const isSettingsOpen = event.payload;
+  console.log(
+    `[deskumi] Settings window visibility changed: ${String(isSettingsOpen)}`
+  );
+  if (isSettingsOpen) {
+    sceneManager.pause();
+  } else {
+    sceneManager.resume();
+  }
+});
+
 // Listen for "settings-updated" event from settings window
 void listen<AppConfig>("settings-updated", async (event) => {
   const newConfig = event.payload;

@@ -54,6 +54,12 @@ pub fn set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>) -> Resu
     {
         use tauri::Manager;
 
+        // Apply input region ONLY if this is the transparent overlay main window.
+        // Secondary windows (such as "settings" or file dialogs) must never have their input clipped.
+        if window.label() != "main" {
+            return Ok(());
+        }
+
         let app = window.app_handle().clone();
 
         app.run_on_main_thread(move || {
@@ -63,14 +69,33 @@ pub fn set_input_region(window: WebviewWindow, rects: Option<Vec<Rect>>) -> Resu
                 return;
             }
 
+            // Target exclusively the main transparent overlay window ("Deskumi"), never settings or dialogs
+            let main_gtk_wins: Vec<gtk::Widget> = toplevels
+                .into_iter()
+                .filter(|widget| {
+                    use gtk::glib::Cast;
+                    use gtk::prelude::GtkWindowExt;
+                    if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                        let title = win.title().map(|t| t.to_string()).unwrap_or_default();
+                        title == "Deskumi"
+                    } else {
+                        false
+                    }
+                })
+                .collect();
+
+            if main_gtk_wins.is_empty() {
+                return;
+            }
+
             if let Some(rect_list) = rects {
                 let region = build_cairo_region(&rect_list);
-                for win in toplevels {
+                for win in main_gtk_wins {
                     apply_region_to_hierarchy(&win, Some(&region));
                 }
             } else {
                 // None restores full window interactive shape
-                for win in toplevels {
+                for win in main_gtk_wins {
                     apply_region_to_hierarchy(&win, None);
                 }
             }
