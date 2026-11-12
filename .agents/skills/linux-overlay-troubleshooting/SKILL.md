@@ -40,8 +40,12 @@ Ve en orden; prueba cada uno exportando la variable antes de `npm run tauri dev`
 3. `tauri.conf.json`: `"transparent": true`, `"decorations": false`, `"shadow": false`.
 4. `WEBKIT_DISABLE_DMABUF_RENDERER=1` (default en nuestro `main.rs`).
 5. NVIDIA: `__NV_DISABLE_EXPLICIT_SYNC=1`.
-6. Último recurso (rompe WebGL acelerado, evitar): `WEBKIT_DISABLE_COMPOSITING_MODE=1`.
-7. X11 puro sin compositor (XFCE sin compositing): no hay transparencia posible →
+6. Tiling Window Managers (Sway / i3 / Hyprland):
+   - En Sway/wlroots el AppImage puede presentar ghosting/estelas si no limpia el buffer swap con las librerías dinámicas del bundle. Preferir el paquete nativo (`.deb` / `.rpm`).
+   - Agregar regla flotante en `~/.config/sway/config`:
+     `for_window [app_id="deskumi"] floating enable, border none, sticky enable`
+7. Último recurso (rompe WebGL acelerado, evitar): `WEBKIT_DISABLE_COMPOSITING_MODE=1`.
+8. X11 puro sin compositor (XFCE sin compositing): no hay transparencia posible →
    documentar como no soportado o pedir activar el compositor.
 
 ## 4. Always-on-top no funciona
