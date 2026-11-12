@@ -11,6 +11,7 @@
     "core:window:allow-inner-position",
     "core:window:allow-outer-position",
     "store:default",
+    "autostart:default",
     "dialog:default",
     "fs:default",
     "fs:allow-read-file",

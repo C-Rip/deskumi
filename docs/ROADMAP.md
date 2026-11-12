@@ -77,7 +77,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | T-403 | Importar `.vrm` propio (`tauri-plugin-dialog` + scope de fs seguro)      | T-402      | —         | ✅     |
 | T-404 | Animaciones `.vrma` (`@pixiv/three-vrm-animation`) y selector            | T-204      | sí        | ⬜     |
 | T-405 | Ahorro de energía: 30→10 FPS en reposo, pausa si oculta/fullscreen       | T-201      | sí        | ⬜     |
-| T-406 | Autostart opcional (`tauri-plugin-autostart`)                            | T-402      | sí        | ⬜     |
+| T-406 | Autostart opcional (`tauri-plugin-autostart`)                            | T-402      | sí        | ✅     |
 | T-407 | Ventana de ajustes (segunda ventana, ADR sobre framework de UI)          | T-402      | —         | ⬜     |
 
 ## F5 — "Release v0.1" (distribución)
