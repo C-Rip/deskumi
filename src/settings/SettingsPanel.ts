@@ -7,7 +7,14 @@ import {
   defaultConfigManager,
   DEFAULT_CONFIG
 } from "../platform/store";
-import { pickVRMFile } from "../platform/avatar-picker";
+import { pickVRMFile, loadAvatarModel } from "../platform/avatar-picker";
+import * as THREE from "three";
+import {
+  centerAndGroundVRM,
+  calculatePerspectiveFraming
+} from "../engine/AvatarLoader";
+import type { VRM } from "@pixiv/three-vrm";
+import sampleAvatarUrl from "../../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
 
 export interface SettingsPanelOptions {
   container: HTMLElement;
@@ -46,6 +53,15 @@ export class SettingsPanel {
   private previewCanvas: HTMLCanvasElement | null = null;
   private guidesToggleBtn: HTMLButtonElement | null = null;
   private showGuides = true;
+
+  // Real 3D Preview Engine
+  private previewScene: THREE.Scene | null = null;
+  private previewCamera: THREE.PerspectiveCamera | null = null;
+  private previewRenderer: THREE.WebGLRenderer | null = null;
+  private previewVRM: VRM | null = null;
+  private previewBlobUrl?: string;
+  private previewRafId: number | null = null;
+  private isPoseTesting = false;
 
   constructor(options: SettingsPanelOptions) {
     this.container = options.container;
@@ -259,7 +275,7 @@ export class SettingsPanel {
     this.updateFpsUI();
     this.updateFrameUI();
     this.updatePreviewGuide();
-    this.initPreviewCanvas();
+    void this.init3DPreview();
   }
 
   private bindElements(): void {
@@ -361,7 +377,14 @@ export class SettingsPanel {
       this.container.querySelector<HTMLButtonElement>("#btn-pose-test");
     if (poseTestBtn) {
       poseTestBtn.addEventListener("click", () => {
-        this.showToast("Pose test activo");
+        this.isPoseTesting = !this.isPoseTesting;
+        poseTestBtn.classList.toggle("active", this.isPoseTesting);
+        this.applyPoseTest(this.isPoseTesting);
+        this.showToast(
+          this.isPoseTesting
+            ? "Pose Test (Brazos extendidos)"
+            : "Pose Test OFF (Reposo)"
+        );
       });
     }
 
@@ -398,6 +421,7 @@ export class SettingsPanel {
       this.config.avatarPath = selected;
       await this.configManager.set("avatarPath", selected);
       this.updateAvatarUI();
+      await this.loadPreviewModel();
       await this.emitUpdate();
       this.showToast("Avatar actualizado");
     } catch (err) {
@@ -410,6 +434,7 @@ export class SettingsPanel {
       this.config.avatarPath = null;
       await this.configManager.set("avatarPath", null);
       this.updateAvatarUI();
+      await this.loadPreviewModel();
       await this.emitUpdate();
       this.showToast("Avatar quitado (usando muestra)");
     } catch (err) {
@@ -423,9 +448,11 @@ export class SettingsPanel {
     if (this.scaleValueEl) {
       this.scaleValueEl.textContent = `${clamped.toFixed(2)}x`;
     }
+    if (this.previewVRM) {
+      this.previewVRM.scene.scale.setScalar(clamped);
+    }
 
     void this.emitUpdate();
-    this.initPreviewCanvas();
 
     if (this.scaleDebounceTimeout !== null) {
       clearTimeout(this.scaleDebounceTimeout);
@@ -525,6 +552,21 @@ export class SettingsPanel {
     }
   }
 
+  public dispose(): void {
+    if (this.previewRafId !== null) {
+      cancelAnimationFrame(this.previewRafId);
+      this.previewRafId = null;
+    }
+    if (this.previewBlobUrl) {
+      URL.revokeObjectURL(this.previewBlobUrl);
+      this.previewBlobUrl = undefined;
+    }
+    if (this.previewRenderer) {
+      this.previewRenderer.dispose();
+      this.previewRenderer = null;
+    }
+  }
+
   private async closeWindow(): Promise<void> {
     if (isTauri()) {
       try {
@@ -565,6 +607,9 @@ export class SettingsPanel {
     }
     if (this.scaleValueEl) {
       this.scaleValueEl.textContent = `${scale.toFixed(2)}x`;
+    }
+    if (this.previewVRM) {
+      this.previewVRM.scene.scale.setScalar(scale);
     }
   }
 
@@ -617,92 +662,157 @@ export class SettingsPanel {
     }
   }
 
-  private initPreviewCanvas(): void {
+  private async init3DPreview(): Promise<void> {
+    if (!this.previewCanvas) return;
+
+    const width = this.previewCanvas.clientWidth || 400;
+    const height = this.previewCanvas.clientHeight || 500;
+
+    // Initialize Three.js scene for preview
+    this.previewScene = new THREE.Scene();
+    this.previewCamera = new THREE.PerspectiveCamera(
+      30,
+      width / height,
+      0.1,
+      100
+    );
+    this.previewCamera.position.set(0, 1.0, 3.5);
+
+    this.previewRenderer = new THREE.WebGLRenderer({
+      canvas: this.previewCanvas,
+      alpha: true,
+      antialias: true
+    });
+    this.previewRenderer.setClearColor(0x000000, 0);
+    this.previewRenderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, 2)
+    );
+    this.previewRenderer.setSize(width, height);
+
+    // Lights
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+    hemiLight.position.set(0, 20, 0);
+    this.previewScene.add(hemiLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(1, 1, 1).normalize();
+    this.previewScene.add(dirLight);
+
+    // Load actual avatar into preview scene
+    await this.loadPreviewModel();
+
+    // Start render loop
+    const renderLoop = () => {
+      if (this.previewRenderer && this.previewScene && this.previewCamera) {
+        if (this.previewVRM) {
+          this.previewVRM.update(0.016);
+        }
+        this.previewRenderer.render(this.previewScene, this.previewCamera);
+      }
+      this.previewRafId = requestAnimationFrame(renderLoop);
+    };
+    renderLoop();
+  }
+
+  private async loadPreviewModel(): Promise<void> {
+    if (!this.previewScene || !this.previewCamera) return;
+
+    // Clean previous preview avatar
+    if (this.previewVRM) {
+      this.previewScene.remove(this.previewVRM.scene);
+      this.previewVRM = null;
+    }
+    if (this.previewBlobUrl) {
+      URL.revokeObjectURL(this.previewBlobUrl);
+      this.previewBlobUrl = undefined;
+    }
+
+    const modelSource = this.config.avatarPath || sampleAvatarUrl;
+    try {
+      const { vrm, blobUrl } = await loadAvatarModel(modelSource);
+      this.previewVRM = vrm;
+      this.previewBlobUrl = blobUrl;
+      this.previewScene.add(vrm.scene);
+
+      const bounds = centerAndGroundVRM(vrm);
+      const framing = calculatePerspectiveFraming(
+        bounds,
+        this.previewCamera.fov,
+        1.15
+      );
+      this.previewCamera.position.copy(framing.cameraPosition);
+      this.previewCamera.lookAt(framing.target);
+
+      const scale = this.config.avatarScale ?? 1.0;
+      vrm.scene.scale.setScalar(scale);
+      this.applyPoseTest(this.isPoseTesting);
+    } catch (err) {
+      console.warn(
+        "[deskumi-settings] Failed to load 3D model in preview, drawing fallback:",
+        err
+      );
+      this.initPreviewCanvasFallback();
+    }
+  }
+
+  private applyPoseTest(isTesting: boolean): void {
+    if (!this.previewVRM?.humanoid) return;
+    const leftArm =
+      this.previewVRM.humanoid.getNormalizedBoneNode("leftUpperArm");
+    const rightArm =
+      this.previewVRM.humanoid.getNormalizedBoneNode("rightUpperArm");
+    if (leftArm && rightArm) {
+      if (isTesting) {
+        // T-Pose / extended arms test
+        leftArm.rotation.z = 0;
+        rightArm.rotation.z = 0;
+      } else {
+        // Relaxed natural A-pose
+        leftArm.rotation.z = -1.2;
+        rightArm.rotation.z = 1.2;
+      }
+    }
+  }
+
+  private initPreviewCanvasFallback(): void {
     if (!this.previewCanvas) return;
     const ctx = this.previewCanvas.getContext("2d");
     if (!ctx) return;
 
-    // Draw reference avatar silhouette or placeholder
-    const draw = () => {
-      if (!this.previewCanvas) return;
-      const w = (this.previewCanvas.width = this.previewCanvas.clientWidth);
-      const h = (this.previewCanvas.height = this.previewCanvas.clientHeight);
+    const w = (this.previewCanvas.width = this.previewCanvas.clientWidth);
+    const h = (this.previewCanvas.height = this.previewCanvas.clientHeight);
 
-      ctx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, w, h);
+    const centerX = w / 2;
+    const centerY = h / 2 + 10;
+    const scale = (this.config.avatarScale ?? 1.0) * 0.9;
 
-      // Simple cute stylized silhouette representation
-      const centerX = w / 2;
-      const centerY = h / 2 + 10;
-      const scale = (this.config.avatarScale ?? 1.0) * 0.9;
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(scale, scale);
 
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.scale(scale, scale);
+    // Shadow
+    ctx.beginPath();
+    ctx.ellipse(0, 85, 35, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fill();
 
-      // Shadow
-      ctx.beginPath();
-      ctx.ellipse(0, 85, 35, 8, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-      ctx.fill();
+    // Hair pigtails
+    ctx.fillStyle = "#14b8a6";
+    ctx.beginPath();
+    ctx.ellipse(-38, -10, 16, 50, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(38, -10, 16, 50, 0.2, 0, Math.PI * 2);
+    ctx.fill();
 
-      // Hair pigtails (cyan)
-      ctx.fillStyle = "#14b8a6";
-      ctx.beginPath();
-      ctx.ellipse(-38, -10, 16, 50, -0.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(38, -10, 16, 50, 0.2, 0, Math.PI * 2);
-      ctx.fill();
+    // Head
+    ctx.beginPath();
+    ctx.arc(0, -35, 24, 0, Math.PI * 2);
+    ctx.fillStyle = "#fef08a";
+    ctx.fill();
 
-      // Head
-      ctx.beginPath();
-      ctx.arc(0, -35, 24, 0, Math.PI * 2);
-      ctx.fillStyle = "#fef08a";
-      ctx.fill();
-
-      // Front hair bangs
-      ctx.beginPath();
-      ctx.arc(0, -42, 25, 0.2, Math.PI - 0.2, false);
-      ctx.fillStyle = "#14b8a6";
-      ctx.fill();
-
-      // Eyes
-      ctx.fillStyle = "#0d9488";
-      ctx.beginPath();
-      ctx.arc(-8, -35, 4, 0, Math.PI * 2);
-      ctx.arc(8, -35, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Body / Clothes
-      ctx.fillStyle = "#334155";
-      ctx.fillRect(-12, -10, 24, 30);
-      ctx.fillStyle = "#0ea5e9";
-      ctx.fillRect(-3, -10, 6, 20); // tie
-
-      // Skirt
-      ctx.beginPath();
-      ctx.moveTo(-16, 20);
-      ctx.lineTo(16, 20);
-      ctx.lineTo(20, 36);
-      ctx.lineTo(-20, 36);
-      ctx.closePath();
-      ctx.fillStyle = "#1e293b";
-      ctx.fill();
-
-      // Legs
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(-10, 36, 7, 45);
-      ctx.fillRect(3, 36, 7, 45);
-
-      // Feet
-      ctx.fillStyle = "#14b8a6";
-      ctx.fillRect(-12, 78, 10, 5);
-      ctx.fillRect(2, 78, 10, 5);
-
-      ctx.restore();
-    };
-
-    draw();
+    ctx.restore();
   }
 
   private async emitUpdate(): Promise<void> {
