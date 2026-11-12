@@ -78,7 +78,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | T-404 | Animaciones `.vrma` (`@pixiv/three-vrm-animation`) y selector            | T-204      | sí        | ✅     |
 | T-405 | Ahorro de energía: 30→10 FPS en reposo, pausa si oculta/fullscreen       | T-201      | sí        | ✅     |
 | T-406 | Autostart opcional (`tauri-plugin-autostart`)                            | T-402      | sí        | ✅     |
-| T-407 | Ventana de ajustes (segunda ventana, ADR sobre framework de UI)          | T-402      | —         | ⬜     |
+| T-407 | Ventana de ajustes (segunda ventana, ADR sobre framework de UI)          | T-402      | —         | ✅     |
 
 ## F5 — "Release v0.1" (distribución)
 
@@ -92,6 +92,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 ## F6 — Post v0.1 (ideas, sin compromiso)
 
+- **Panel de Ajustes con previsualización integrada:** mover la previsualización 3D del personaje directamente a un viewport dentro de la propia ventana de configuración para pausar la ventana de escritorio transparente durante la configuración y evitar contención en WebKitGTK.
 - Personajes 2D: sprites animados (PixiJS o Three.js planos). Live2D requiere revisar licencia del SDK → ADR.
 - Varios personajes a la vez / múltiples monitores.
 - Overlays para streamers (modo ventana capturable por OBS con fondo chroma).
