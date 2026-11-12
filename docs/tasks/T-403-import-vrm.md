@@ -1,14 +1,14 @@
 # T-403: Importar .vrm Propio (Dialog + Scope de FS Seguro)
 
-| Campo         | Valor                                                                 |
-| ------------- | --------------------------------------------------------------------- |
-| Estado        | en curso                                                              |
-| Asignado      | @crivera + antigravity                                                |
-| Fase          | F4                                                                    |
-| Rama          | `feat/T-403-import-vrm`                                               |
-| Depende de    | T-402                                                                 |
-| Estimación    | M (≤ 1 día)                                                           |
-| Skills útiles | `rust-tauri`, `three-vrm-recipes`, `task-workflow`                    |
+| Campo         | Valor                                              |
+| ------------- | -------------------------------------------------- |
+| Estado        | en curso                                           |
+| Asignado      | @crivera + antigravity                             |
+| Fase          | F4                                                 |
+| Rama          | `feat/T-403-import-vrm`                            |
+| Depende de    | T-402                                              |
+| Estimación    | M (≤ 1 día)                                        |
+| Skills útiles | `rust-tauri`, `three-vrm-recipes`, `task-workflow` |
 
 ## Objetivo
 
