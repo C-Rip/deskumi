@@ -20,6 +20,10 @@ export interface AppConfig {
   autostart: boolean;
   /** Avatar visual scale multiplier (0.5x - 2.0x, default 1.0) */
   avatarScale: number;
+  /** Transparent window frame width in pixels (default 400) */
+  frameWidth: number;
+  /** Transparent window frame height in pixels (default 600) */
+  frameHeight: number;
 }
 
 /**
@@ -32,7 +36,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   avatarPath: null,
   vrmaPath: null,
   autostart: false,
-  avatarScale: 1.0
+  avatarScale: 1.0,
+  frameWidth: 400,
+  frameHeight: 600
 };
 
 export const SETTINGS_FILE = "settings.json";
@@ -117,6 +123,23 @@ export class ConfigManager {
       await this.store.save();
     } catch (err: unknown) {
       console.warn(`[deskumi] Failed to delete setting ${String(key)}:`, err);
+    }
+  }
+
+  /**
+   * Saves an entire AppConfig object to store.
+   */
+  async saveConfig(config: AppConfig): Promise<void> {
+    this.memoryConfig = { ...config };
+    if (!this.store) return;
+    try {
+      const keys = Object.keys(config) as Array<keyof AppConfig>;
+      for (const key of keys) {
+        await this.store.set(key, config[key]);
+      }
+      await this.store.save();
+    } catch (err: unknown) {
+      console.warn("[deskumi] Failed to save full config to store:", err);
     }
   }
 

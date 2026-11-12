@@ -13,6 +13,7 @@ class MockElement {
     add: (...c: string[]) => void;
     remove: (...c: string[]) => void;
     contains: (c: string) => boolean;
+    toggle: (c: string, force?: boolean) => boolean;
   };
   public attributes: Record<string, string> = {};
   public eventListeners: Record<string, ((e: unknown) => void)[]> = {};
@@ -24,7 +25,13 @@ class MockElement {
       classes,
       add: (...c: string[]) => c.forEach((cls) => classes.add(cls)),
       remove: (...c: string[]) => c.forEach((cls) => classes.delete(cls)),
-      contains: (c: string) => classes.has(c)
+      contains: (c: string) => classes.has(c),
+      toggle: (c: string, force?: boolean) => {
+        const shouldAdd = force !== undefined ? force : !classes.has(c);
+        if (shouldAdd) classes.add(c);
+        else classes.delete(c);
+        return shouldAdd;
+      }
     };
   }
 

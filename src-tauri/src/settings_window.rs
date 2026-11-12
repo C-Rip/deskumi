@@ -5,8 +5,8 @@ use crate::error::AppError;
 pub const SETTINGS_WINDOW_LABEL: &str = "settings";
 pub const SETTINGS_WINDOW_TITLE: &str = "Ajustes de Deskumi";
 pub const SETTINGS_WINDOW_URL: &str = "settings.html";
-pub const SETTINGS_WINDOW_WIDTH: f64 = 460.0;
-pub const SETTINGS_WINDOW_HEIGHT: f64 = 540.0;
+pub const SETTINGS_WINDOW_WIDTH: f64 = 960.0;
+pub const SETTINGS_WINDOW_HEIGHT: f64 = 680.0;
 
 #[tauri::command]
 pub fn open_settings_window(app: AppHandle) -> Result<(), AppError> {
@@ -54,7 +54,7 @@ mod tests {
         assert_eq!(SETTINGS_WINDOW_LABEL, "settings");
         assert_eq!(SETTINGS_WINDOW_TITLE, "Ajustes de Deskumi");
         assert_eq!(SETTINGS_WINDOW_URL, "settings.html");
-        assert!((SETTINGS_WINDOW_WIDTH - 460.0).abs() < f64::EPSILON);
-        assert!((SETTINGS_WINDOW_HEIGHT - 540.0).abs() < f64::EPSILON);
+        assert!((SETTINGS_WINDOW_WIDTH - 960.0).abs() < f64::EPSILON);
+        assert!((SETTINGS_WINDOW_HEIGHT - 680.0).abs() < f64::EPSILON);
     }
 }

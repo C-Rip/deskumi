@@ -21,7 +21,7 @@ import {
   type LoadedAvatarContext
 } from "./platform/avatar-picker";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./styles/app.css";
 
 console.log("[deskumi] Initializing Deskumi transparent window");
@@ -190,7 +190,26 @@ void listen<AppConfig>("settings-updated", async (event) => {
     currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
   }
 
-  // 3. Update Avatar Model only if path actually changed
+  // 3. Update Transparent Window Dimensions (Frame Size)
+  if (
+    typeof newConfig.frameWidth === "number" &&
+    typeof newConfig.frameHeight === "number"
+  ) {
+    try {
+      const win = getCurrentWindow();
+      await win.setSize(
+        new LogicalSize(newConfig.frameWidth, newConfig.frameHeight)
+      );
+      sceneManager.resize(newConfig.frameWidth, newConfig.frameHeight);
+      console.log(
+        `[deskumi] Resized transparent window frame to ${newConfig.frameWidth}x${newConfig.frameHeight}`
+      );
+    } catch (err) {
+      console.warn("[deskumi] Failed to resize transparent window:", err);
+    }
+  }
+
+  // 4. Update Avatar Model only if path actually changed
   if (
     newConfig.avatarPath !== undefined &&
     newConfig.avatarPath !== activeAvatarPath
@@ -244,6 +263,21 @@ async function initAvatar(): Promise<void> {
 
   const avatarPath = config.avatarPath;
   const avatarScale = config.avatarScale ?? 1.0;
+  const frameWidth = config.frameWidth ?? 400;
+  const frameHeight = config.frameHeight ?? 600;
+
+  if (frameWidth !== 400 || frameHeight !== 600) {
+    try {
+      const win = getCurrentWindow();
+      await win.setSize(new LogicalSize(frameWidth, frameHeight));
+      sceneManager.resize(frameWidth, frameHeight);
+    } catch (err) {
+      console.warn(
+        "[deskumi] Failed to set initial transparent window size:",
+        err
+      );
+    }
+  }
 
   if (config.fpsCap) {
     sceneManager.fpsCap = config.fpsCap;
