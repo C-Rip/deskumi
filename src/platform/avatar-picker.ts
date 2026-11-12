@@ -193,3 +193,22 @@ export async function pickAndSwitchAvatar(
     return false;
   }
 }
+
+/**
+ * Clears the current avatar, empties the scene, and resets the input region to passthrough.
+ */
+export async function clearAvatar(
+  sceneManager: SceneManager,
+  getCurrentContext: () => LoadedAvatarContext | null,
+  setCurrentContext: (ctx: LoadedAvatarContext | null) => void
+): Promise<void> {
+  const prevContext = getCurrentContext();
+  if (prevContext) {
+    teardownAvatarContext(prevContext, sceneManager);
+    setCurrentContext(null);
+  }
+
+  // Remove saved avatarPath from store
+  await defaultConfigManager.delete("avatarPath");
+  console.log("[deskumi] Avatar cleared from scene and store");
+}

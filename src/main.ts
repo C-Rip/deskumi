@@ -11,6 +11,7 @@ import {
   loadAvatarModel,
   setupAvatarInScene,
   pickAndSwitchAvatar,
+  clearAvatar,
   type LoadedAvatarContext
 } from "./platform/avatar-picker";
 import { listen } from "@tauri-apps/api/event";
@@ -88,6 +89,18 @@ const sceneManager = new SceneManager({
 void listen("tray-request-load-avatar", () => {
   console.log("[deskumi] Received tray-request-load-avatar event");
   void pickAndSwitchAvatar(
+    sceneManager,
+    () => currentAvatarContext,
+    (ctx) => {
+      currentAvatarContext = ctx;
+    }
+  );
+});
+
+// Listen for "tray-request-clear-avatar" event from native tray menu
+void listen("tray-request-clear-avatar", () => {
+  console.log("[deskumi] Received tray-request-clear-avatar event");
+  void clearAvatar(
     sceneManager,
     () => currentAvatarContext,
     (ctx) => {

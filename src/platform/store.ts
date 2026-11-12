@@ -96,6 +96,22 @@ export class ConfigManager {
   }
 
   /**
+   * Deletes a configuration key from persistent store.
+   */
+  async delete<K extends keyof AppConfig>(key: K): Promise<void> {
+    this.memoryConfig[key] = DEFAULT_CONFIG[key];
+    if (!this.store) {
+      return;
+    }
+    try {
+      await this.store.delete(key);
+      await this.store.save();
+    } catch (err: unknown) {
+      console.warn(`[deskumi] Failed to delete setting ${String(key)}:`, err);
+    }
+  }
+
+  /**
    * Returns current cached configuration.
    */
   get(): AppConfig {
