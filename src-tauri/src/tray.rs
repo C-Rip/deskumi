@@ -148,7 +148,6 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
             MENU_OPEN_SETTINGS => {
                 let _ = crate::settings_window::open_settings_window(app.clone());
             }
-            }
             MENU_QUIT => {
                 app.exit(0);
             }

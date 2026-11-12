@@ -30,7 +30,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   windowY: null,
   fpsCap: 30,
   avatarPath: null,
-  avatarPath: null,
   vrmaPath: null,
   autostart: false,
   avatarScale: 1.0
