@@ -31,6 +31,7 @@ export class SettingsPanel {
   private fpsButtons: HTMLButtonElement[] = [];
   private toastEl: HTMLElement | null = null;
   private toastTimeout: ReturnType<typeof setTimeout> | null = null;
+  private scaleDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(options: SettingsPanelOptions) {
     this.container = options.container;
@@ -215,8 +216,17 @@ export class SettingsPanel {
     if (this.scaleValueEl) {
       this.scaleValueEl.textContent = `${clamped.toFixed(2)}x`;
     }
-    await this.configManager.set("avatarScale", clamped);
-    await this.emitUpdate();
+
+    // Immediately emit live visual preview so UI stays smooth
+    void this.emitUpdate();
+
+    // Debounce disk store saving to avoid disk I/O freezes while dragging the slider
+    if (this.scaleDebounceTimeout !== null) {
+      clearTimeout(this.scaleDebounceTimeout);
+    }
+    this.scaleDebounceTimeout = setTimeout(() => {
+      void this.configManager.set("avatarScale", clamped);
+    }, 200);
   }
 
   public async handleFpsCapChange(fps: number): Promise<void> {

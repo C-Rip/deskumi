@@ -40,6 +40,7 @@ window.addEventListener("contextmenu", (event) => {
 let isDragging = false;
 let savePositionTimeout: ReturnType<typeof setTimeout> | null = null;
 let currentAvatarContext: LoadedAvatarContext | null = null;
+let activeAvatarPath: string | null = null;
 
 // Enable native window dragging with primary mouse button when dragging
 setupWindowDrag({
@@ -176,12 +177,12 @@ void listen<AppConfig>("settings-updated", async (event) => {
     currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
   }
 
-  // 3. Update Avatar Model if changed
-  const storedConfig = await defaultConfigManager.load();
+  // 3. Update Avatar Model only if path actually changed
   if (
     newConfig.avatarPath !== undefined &&
-    newConfig.avatarPath !== storedConfig.avatarPath
+    newConfig.avatarPath !== activeAvatarPath
   ) {
+    activeAvatarPath = newConfig.avatarPath;
     if (newConfig.avatarPath === null) {
       void clearAvatar(
         sceneManager,
@@ -241,6 +242,7 @@ async function initAvatar(): Promise<void> {
       const { vrm, blobUrl } = await loadAvatarModel(avatarPath);
       currentAvatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
       currentAvatarContext.vrm.scene.scale.setScalar(avatarScale);
+      activeAvatarPath = avatarPath;
       console.log("[deskumi] Loaded saved avatar successfully");
     } catch (err) {
       console.warn(
