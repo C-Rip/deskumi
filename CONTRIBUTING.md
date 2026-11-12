@@ -73,6 +73,7 @@ Para mantener la estabilidad de `main` y `dev`, configurar Branch Protection Rul
      - `frontend`
      - `rust`
      - `build-linux` (en `main`)
+     - `build-release` (en `main`)
 4. **No permitir saltarse las reglas:** aplicar estas restricciones también a administradores (`Do not allow bypassing the above settings`).
 
 ## Versionado y releases

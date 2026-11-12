@@ -8,6 +8,9 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- Bundles Linux y targets de empaquetado (T-501): Metadatos completos de empaquetado en `src-tauri/tauri.conf.json` (`shortDescription`, `longDescription`, `category: Utility`, `copyright`), targets multi-distribución (`.deb`, `.rpm`, `.AppImage`) y declaración de dependencias de sistema (WebKit2GTK 4.1, Ayatana AppIndicator, librsvg, libxdo).
+- Build Windows y compilación multiplataforma en CI (T-502): Configuración de instalador NSIS para Windows en `tauri.conf.json` y job matricial `build-release` en `.github/workflows/ci.yml` ejecutando compilaciones automáticas en `ubuntu-22.04` (bundles Linux deb/appimage) y `windows-latest` (bundle Windows NSIS/.exe).
+
 - Soporte para animaciones retargeteables `.vrma` (`@pixiv/three-vrm-animation`) y selector (T-404): `VRMAPlayer` para carga y reproducción de animaciones `.vrma` con `THREE.AnimationMixer`, crossfading (`fadeIn`/`fadeOut`), modo loop y one-shot, lectura de archivos locales en runtime Tauri, selector nativo en System Tray (`Cargar animación (.vrma)...` y `Detener animación (.vrma)`), persistencia de `vrmaPath` en `settings.json`, y pausa de idle procedural en `AnimationSystem` durante la reproducción.
 - Ventana secundaria de ajustes (T-407): Ventana nativa bajo demanda (460x540 px) abrible desde el System Tray ("Ajustes...") y mediante comando Tauri IPC `open_settings_window`, panel de configuración en Vanilla TypeScript + CSS Custom Properties (`settings.html` + `SettingsPanel.ts`), persistencia en `tauri-plugin-store` y sincronización en tiempo real con la ventana principal mediante evento Tauri `"settings-updated"` (avatar, escala 0.5x-2.0x, límite 15/30/60 FPS y restablecimiento de posición).
 
