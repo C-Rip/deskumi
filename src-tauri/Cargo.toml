@@ -1,6 +1,6 @@
 [package]
 name = "deskumi"
-version = "0.1.0"
+version = "0.1.1"
 description = "Interactive 2D/3D desktop companion engine"
 authors = ["crivera"]
 edition = "2021"

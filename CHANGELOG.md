@@ -6,6 +6,15 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-12
+
+### Fixed
+
+- **WebGL Ghosting / Framebuffer Clear**: Se configuró `premultipliedAlpha: false`, `autoClear: true` y llamada explícita a `this.renderer.clear()` en `SceneManager.ts` para eliminar artefactos y estelas de frames anteriores durante animaciones procedurales en ventanas transparentes.
+- **RPM Dependencies en Fedora/RHEL**: Se corrigió el nombre del paquete de dependencia de bandeja en `tauri.conf.json` de `libayatana-appindicator` a `libappindicator-gtk3`, resolviendo el fallo de instalación con `dnf install`.
+
+## [0.1.0] - 2026-11-12
+
 ### Added
 
 - Bundles Linux y targets de empaquetado (T-501): Metadatos completos de empaquetado en `src-tauri/tauri.conf.json` (`shortDescription`, `longDescription`, `category: Utility`, `copyright`), targets multi-distribución (`.deb`, `.rpm`, `.AppImage`) y declaración de dependencias de sistema (WebKit2GTK 4.1, Ayatana AppIndicator, librsvg, libxdo).

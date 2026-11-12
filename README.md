@@ -6,9 +6,9 @@
 Personajes 3D (VRM) y 2D interactivos viviendo en tu escritorio — ligero, open source
 y **Linux-first** (Fedora, Nobara, Debian, Ubuntu; GNOME y KDE), con soporte completo para Windows.
 
-> **Versión actual:** [v0.1.0](https://github.com/C-Rip/deskumi/releases/tag/v0.1.0) 🎉 (Ver [CHANGELOG.md](CHANGELOG.md))
+> **Versión actual:** [v0.1.1](https://github.com/C-Rip/deskumi/releases/tag/v0.1.1) 🎉 (Ver [CHANGELOG.md](CHANGELOG.md))
 
-## Descargas directas (v0.1.0)
+## Descargas directas (v0.1.1)
 
 Elige el instalador o paquete correspondiente a tu sistema operativo:
 
@@ -16,18 +16,18 @@ Elige el instalador o paquete correspondiente a tu sistema operativo:
 
 | Formato                 | Compatibilidad                                  | Descarga directa                                                                                                          |
 | :---------------------- | :---------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-| **AppImage** (Portable) | Universal (Debian, Fedora, Arch, Ubuntu 22.04+) | [📥 deskumi_0.1.0_amd64.AppImage](https://github.com/C-Rip/deskumi/releases/download/v0.1.0/deskumi_0.1.0_amd64.AppImage) |
-| **.deb**                | Debian, Ubuntu, Linux Mint, Pop!_OS             | [📥 deskumi_0.1.0_amd64.deb](https://github.com/C-Rip/deskumi/releases/download/v0.1.0/deskumi_0.1.0_amd64.deb)           |
-| **.rpm**                | Fedora, Nobara, openSUSE, RHEL                  | [📥 deskumi-0.1.0-1.x86_64.rpm](https://github.com/C-Rip/deskumi/releases/download/v0.1.0/deskumi-0.1.0-1.x86_64.rpm)     |
+| **AppImage** (Portable) | Universal (Debian, Fedora, Arch, Ubuntu 22.04+) | [📥 deskumi_0.1.1_amd64.AppImage](https://github.com/C-Rip/deskumi/releases/download/v0.1.1/deskumi_0.1.1_amd64.AppImage) |
+| **.deb**                | Debian, Ubuntu, Linux Mint, Pop!_OS             | [📥 deskumi_0.1.1_amd64.deb](https://github.com/C-Rip/deskumi/releases/download/v0.1.1/deskumi_0.1.1_amd64.deb)           |
+| **.rpm**                | Fedora, Nobara, openSUSE, RHEL                  | [📥 deskumi-0.1.1-1.x86_64.rpm](https://github.com/C-Rip/deskumi/releases/download/v0.1.1/deskumi-0.1.1-1.x86_64.rpm)     |
 
-> **Nota para AppImage en Debian/Ubuntu:** Asegúrate de tener permisos de ejecución (`chmod +x deskumi_0.1.0_amd64.AppImage`). Si tu sistema no tiene `libfuse2`, instálalo con `sudo apt install libfuse2` o ejecuta con `./deskumi_...AppImage --appimage-extract-and-run`.
+> **Nota para AppImage en Debian/Ubuntu:** Asegúrate de tener permisos de ejecución (`chmod +x deskumi_0.1.1_amd64.AppImage`). Si tu sistema no tiene `libfuse2`, instálalo con `sudo apt install libfuse2` o ejecuta con `./deskumi_...AppImage --appimage-extract-and-run`.
 
 ### 🪟 Windows (x64)
 
 | Formato                        | Tipo                                           | Descarga directa                                                                                                        |
 | :----------------------------- | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-| **Instalador estándar (.exe)** | Recomendado para la mayoría de usuarios (NSIS) | [📥 deskumi_0.1.0_x64-setup.exe](https://github.com/C-Rip/deskumi/releases/download/v0.1.0/deskumi_0.1.0_x64-setup.exe) |
-| **Instalador MSI (.msi)**      | Instalador corporativo / despliegue WiX        | [📥 deskumi_0.1.0_x64_en-US.msi](https://github.com/C-Rip/deskumi/releases/download/v0.1.0/deskumi_0.1.0_x64_en-US.msi) |
+| **Instalador estándar (.exe)** | Recomendado para la mayoría de usuarios (NSIS) | [📥 deskumi_0.1.1_x64-setup.exe](https://github.com/C-Rip/deskumi/releases/download/v0.1.1/deskumi_0.1.1_x64-setup.exe) |
+| **Instalador MSI (.msi)**      | Instalador corporativo / despliegue WiX        | [📥 deskumi_0.1.1_x64_en-US.msi](https://github.com/C-Rip/deskumi/releases/download/v0.1.1/deskumi_0.1.1_x64_en-US.msi) |
 
 Todos los binarios y sus firmas SHA-256 están disponibles en la [página de Releases](https://github.com/C-Rip/deskumi/releases/latest).
 
