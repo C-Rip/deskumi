@@ -35,7 +35,6 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
         MenuItem::with_id(app, MENU_CLEAR_AVATAR, "Quitar avatar", true, None::<&str>).map_err(
             |e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")),
         )?;
-
     let load_vrma_item = MenuItem::with_id(
         app,
         MENU_LOAD_VRMA,
@@ -127,8 +126,10 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
 pub fn toggle_main_window_visibility(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if let Ok(is_visible) = window.is_visible() {
+            use tauri::Emitter;
             if is_visible {
                 let _ = window.hide();
+                let _ = app.emit("tray-visibility-changed", false);
             } else {
                 // When unhiding, explicitly restore position if it was shifted by the window manager
                 if let Ok(pos) = window.outer_position() {
@@ -150,6 +151,7 @@ pub fn toggle_main_window_visibility(app: &AppHandle) {
                     });
                 }
                 let _ = window.set_focus();
+                let _ = app.emit("tray-visibility-changed", true);
             }
         }
     }

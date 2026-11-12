@@ -1,5 +1,6 @@
 import sampleAvatarUrl from "../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
 import { SceneManager } from "./engine/SceneManager";
+import { PowerSaveController } from "./engine/PowerSaveController";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
 import {
@@ -82,10 +83,28 @@ if (!appContainer) {
   throw new Error("Missing #app container element");
 }
 
-const sceneManager = new SceneManager({
+export const sceneManager = new SceneManager({
   container: appContainer,
   fpsCap: 30
 });
+
+export const powerSaveController = new PowerSaveController(sceneManager, {
+  activeFps: 30,
+  idleFps: 10,
+  idleTimeoutMs: 15_000
+});
+
+/**
+ * Updates active FPS dynamically (e.g. from settings window or IPC).
+ */
+export function setActiveFps(fps: number): void {
+  powerSaveController.setActiveFps(fps);
+}
+
+if (typeof window !== "undefined") {
+  (window as unknown as { setActiveFps?: typeof setActiveFps }).setActiveFps =
+    setActiveFps;
+}
 
 // Listen for "tray-request-load-avatar" event from native tray menu
 void listen("tray-request-load-avatar", () => {
@@ -130,6 +149,10 @@ void listen("tray-request-stop-vrma", () => {
 // Load configured avatar or fallback to official sample avatar
 async function initAvatar(): Promise<void> {
   const config = await defaultConfigManager.load();
+  if (config.fpsCap && config.fpsCap > 0) {
+    powerSaveController.setActiveFps(config.fpsCap);
+  }
+
   const avatarPath = config.avatarPath;
 
   if (avatarPath) {
