@@ -86,20 +86,30 @@ export async function loadVRMAFromPathOrUrl(
   pathOrUrl: string,
   options: VRMALoadOptions = {}
 ): Promise<{ vrmAnimation: VRMAnimation; blobUrl?: string }> {
-  if (
-    isTauri() &&
-    !pathOrUrl.startsWith("http") &&
-    !pathOrUrl.startsWith("blob:") &&
-    !pathOrUrl.startsWith("data:")
-  ) {
-    const bytes = await readFile(pathOrUrl);
-    const blob = new Blob([bytes], { type: "application/octet-stream" });
-    const blobUrl = URL.createObjectURL(blob);
+  const isWebOrAsset =
+    pathOrUrl.startsWith("http://") ||
+    pathOrUrl.startsWith("https://") ||
+    pathOrUrl.startsWith("blob:") ||
+    pathOrUrl.startsWith("data:") ||
+    pathOrUrl.startsWith("/assets/") ||
+    pathOrUrl.startsWith("./assets/");
+
+  if (isTauri() && !isWebOrAsset) {
     try {
-      const vrmAnimation = await loadVRMA(blobUrl, options);
-      return { vrmAnimation, blobUrl };
-    } finally {
-      URL.revokeObjectURL(blobUrl);
+      const bytes = await readFile(pathOrUrl);
+      const blob = new Blob([bytes], { type: "application/octet-stream" });
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const vrmAnimation = await loadVRMA(blobUrl, options);
+        return { vrmAnimation, blobUrl };
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    } catch (fsError) {
+      console.warn(
+        `[deskumi] Failed to read VRMA ${pathOrUrl} via Tauri fs, falling back to direct load:`,
+        fsError
+      );
     }
   }
 
