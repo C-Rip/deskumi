@@ -8,12 +8,18 @@ pub const TRAY_ID: &str = "deskumi-main-tray";
 pub const MENU_TOGGLE_VISIBILITY: &str = "tray_toggle_visibility";
 pub const MENU_LOAD_AVATAR: &str = "tray_load_avatar";
 pub const MENU_CLEAR_AVATAR: &str = "tray_clear_avatar";
+pub const MENU_OPEN_SETTINGS: &str = "tray_open_settings";
 pub const MENU_QUIT: &str = "tray_quit";
 
 pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
-    let toggle_item =
-        MenuItem::with_id(app, MENU_TOGGLE_VISIBILITY, "Ocultar / Mostrar", true, None::<&str>)
-            .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
+    let toggle_item = MenuItem::with_id(
+        app,
+        MENU_TOGGLE_VISIBILITY,
+        "Ocultar / Mostrar",
+        true,
+        None::<&str>,
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray toggle item: {e}")))?;
 
     let load_avatar_item = MenuItem::with_id(
         app,
@@ -24,20 +30,29 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
     )
     .map_err(|e| AppError::Platform(format!("Failed to create tray load avatar item: {e}")))?;
 
-    let clear_avatar_item = MenuItem::with_id(
-        app,
-        MENU_CLEAR_AVATAR,
-        "Quitar avatar",
-        true,
-        None::<&str>,
-    )
-    .map_err(|e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")))?;
+    let clear_avatar_item =
+        MenuItem::with_id(app, MENU_CLEAR_AVATAR, "Quitar avatar", true, None::<&str>).map_err(
+            |e| AppError::Platform(format!("Failed to create tray clear avatar item: {e}")),
+        )?;
+
+    let settings_item =
+        MenuItem::with_id(app, MENU_OPEN_SETTINGS, "Ajustes...", true, None::<&str>)
+            .map_err(|e| AppError::Platform(format!("Failed to create tray settings item: {e}")))?;
 
     let quit_item = MenuItem::with_id(app, MENU_QUIT, "Salir de Deskumi", true, None::<&str>)
         .map_err(|e| AppError::Platform(format!("Failed to create tray quit item: {e}")))?;
 
-    let menu = Menu::with_items(app, &[&toggle_item, &load_avatar_item, &clear_avatar_item, &quit_item])
-        .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
+    let menu = Menu::with_items(
+        app,
+        &[
+            &toggle_item,
+            &load_avatar_item,
+            &clear_avatar_item,
+            &settings_item,
+            &quit_item,
+        ],
+    )
+    .map_err(|e| AppError::Platform(format!("Failed to create tray menu: {e}")))?;
 
     let mut builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
@@ -62,6 +77,9 @@ pub fn create_tray(app: &AppHandle) -> Result<(), AppError> {
             MENU_CLEAR_AVATAR => {
                 use tauri::Emitter;
                 let _ = app.emit("tray-request-clear-avatar", ());
+            }
+            MENU_OPEN_SETTINGS => {
+                let _ = crate::settings_window::open_settings_window(app.clone());
             }
             MENU_QUIT => {
                 app.exit(0);

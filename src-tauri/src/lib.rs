@@ -1,6 +1,7 @@
 pub mod error;
 pub mod input_region;
 pub mod platform;
+pub mod settings_window;
 pub mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,7 +18,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platform::get_platform_caps,
             platform::set_window_desktop_position,
-            input_region::set_input_region
+            input_region::set_input_region,
+            settings_window::open_settings_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -14,6 +14,8 @@ export interface AppConfig {
   fpsCap: number;
   /** Active VRM avatar identifier or path */
   avatarPath: string | null;
+  /** Avatar visual scale multiplier (0.5x - 2.0x, default 1.0) */
+  avatarScale: number;
 }
 
 /**
@@ -23,7 +25,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   windowX: null,
   windowY: null,
   fpsCap: 30,
-  avatarPath: null
+  avatarPath: null,
+  avatarScale: 1.0
 };
 
 export const SETTINGS_FILE = "settings.json";

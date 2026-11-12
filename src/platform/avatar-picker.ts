@@ -182,6 +182,10 @@ export async function pickAndSwitchAvatar(
     }
 
     const newContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+    const config = defaultConfigManager.get();
+    if (config.avatarScale) {
+      newContext.vrm.scene.scale.setScalar(config.avatarScale);
+    }
     setCurrentContext(newContext);
 
     // Save to configuration store
