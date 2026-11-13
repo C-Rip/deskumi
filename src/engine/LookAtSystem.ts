@@ -140,7 +140,6 @@ const _tempCameraDir = new THREE.Vector3();
 const _tempPlaneNormal = new THREE.Vector3();
 const _tempPlanePoint = new THREE.Vector3();
 const _tempHeadPos = new THREE.Vector3();
-const _tempHeadNdc = new THREE.Vector3();
 const _tempAvatarForward = new THREE.Vector3();
 const _tempAvatarQuat = new THREE.Quaternion();
 const _tempHeadToTarget = new THREE.Vector3();
@@ -197,14 +196,14 @@ export interface LookAtSystemOptions {
   targetDistance?: number;
 
   /**
-   * Maximum yaw rotation in radians (left/right). Default is ±30° (π/6).
-   * @default Math.PI / 6
+   * Maximum yaw rotation in radians (left/right). Default is ±35° (~0.61 rad).
+   * @default (35 * Math.PI) / 180
    */
   maxYaw?: number;
 
   /**
-   * Maximum pitch rotation in radians (up/down). Default is ±30° (π/6).
-   * @default Math.PI / 6
+   * Maximum pitch rotation in radians (up/down). Default is ±35° (~0.61 rad).
+   * @default (35 * Math.PI) / 180
    */
   maxPitch?: number;
 
@@ -284,8 +283,8 @@ export class LookAtSystem implements System {
     this.camera = options.camera;
 
     this.targetDistance = options.targetDistance ?? 1.0;
-    this.maxYaw = options.maxYaw ?? Math.PI / 6;
-    this.maxPitch = options.maxPitch ?? Math.PI / 6;
+    this.maxYaw = options.maxYaw ?? (35 * Math.PI) / 180;
+    this.maxPitch = options.maxPitch ?? (35 * Math.PI) / 180;
     this.neckWeight = Math.max(0, Math.min(1, options.neckWeight ?? 0.3));
     this.damping = options.damping ?? 10.0;
     this.idleTimeout = options.idleTimeout ?? 3.0;
@@ -456,13 +455,11 @@ export class LookAtSystem implements System {
     if (this.isIdle) {
       this.desiredTargetPosition.copy(this.neutralTargetPosition);
     } else {
-      // Project head world position to NDC screen coordinates
-      _tempHeadNdc.copy(_tempHeadPos).project(this.camera);
-
-      // Compute natural 4-quadrant exponential angles centered at the face
+      // 4-quadrant symmetric division of the window frame centered at (0, 0)
+      // Vertical symmetry axis at x = 0, horizontal symmetry axis at y = 0
       const { yaw, pitch } = calcQuadrantExponentialAngles(
         this.lastMouseNdc,
-        { x: _tempHeadNdc.x, y: _tempHeadNdc.y },
+        { x: 0, y: 0 },
         this.maxYaw,
         this.maxPitch
       );
