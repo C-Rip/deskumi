@@ -236,9 +236,11 @@ void listen<AppConfig>("settings-updated", async (event) => {
   ) {
     try {
       const win = getCurrentWindow();
+      await win.setResizable(true);
       await win.setSize(
         new LogicalSize(newConfig.frameWidth, newConfig.frameHeight)
       );
+      await win.setResizable(false);
       sceneManager.resize(newConfig.frameWidth, newConfig.frameHeight);
       console.log(
         `[deskumi] Resized transparent window frame to ${newConfig.frameWidth}x${newConfig.frameHeight}`
@@ -313,7 +315,9 @@ async function initAvatar(): Promise<void> {
   if (frameWidth !== 400 || frameHeight !== 600) {
     try {
       const win = getCurrentWindow();
+      await win.setResizable(true);
       await win.setSize(new LogicalSize(frameWidth, frameHeight));
+      await win.setResizable(false);
       sceneManager.resize(frameWidth, frameHeight);
     } catch (err) {
       console.warn(
