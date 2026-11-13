@@ -177,6 +177,8 @@ void listen<boolean>("settings-window-visibility", (event) => {
 
 // Listen for "settings-updated" event from settings window
 void listen<AppConfig>("settings-updated", async (event) => {
+  // Ensure main scene is running in case settings window was open
+  sceneManager.resume();
   const newConfig = event.payload;
   console.log("[deskumi] Received settings-updated event:", newConfig);
 

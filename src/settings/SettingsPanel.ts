@@ -16,17 +16,25 @@ import {
 import type { VRM } from "@pixiv/three-vrm";
 import sampleAvatarUrl from "../../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
 
+export type SettingsEmitPayload = AppConfig | boolean | unknown;
+
 export interface SettingsPanelOptions {
   container: HTMLElement;
   configManager?: ConfigManager;
-  onEmit?: (event: string, payload: AppConfig) => Promise<void> | void;
+  onEmit?: (
+    event: string,
+    payload: SettingsEmitPayload
+  ) => Promise<void> | void;
   pickFile?: () => Promise<string | null>;
 }
 
 export class SettingsPanel {
   private container: HTMLElement;
   private configManager: ConfigManager;
-  private onEmit: (event: string, payload: AppConfig) => Promise<void> | void;
+  private onEmit: (
+    event: string,
+    payload: SettingsEmitPayload
+  ) => Promise<void> | void;
   private pickFile: () => Promise<string | null>;
 
   private config: AppConfig = { ...DEFAULT_CONFIG };
@@ -74,7 +82,7 @@ export class SettingsPanel {
     this.configManager = options.configManager ?? defaultConfigManager;
     this.onEmit =
       options.onEmit ??
-      (async (event: string, payload: AppConfig) => {
+      (async (event: string, payload?: unknown) => {
         if (isTauri()) {
           try {
             await emit(event, payload);
@@ -626,6 +634,7 @@ export class SettingsPanel {
   private async closeWindow(): Promise<void> {
     if (isTauri()) {
       try {
+        await this.onEmit("settings-window-visibility", false);
         const win = getCurrentWindow();
         await win.close();
       } catch (err) {

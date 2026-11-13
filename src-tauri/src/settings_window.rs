@@ -36,10 +36,11 @@ pub fn open_settings_window(app: AppHandle) -> Result<(), AppError> {
     let _ = app.emit("settings-window-visibility", true);
 
     let app_for_events = app_clone.clone();
-    window.on_window_event(move |event| {
-        if let WindowEvent::Destroyed = event {
+    window.on_window_event(move |event| match event {
+        WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed => {
             let _ = app_for_events.emit("settings-window-visibility", false);
         }
+        _ => {}
     });
 
     Ok(())

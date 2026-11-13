@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SettingsPanel } from "./SettingsPanel";
+import { SettingsPanel, type SettingsEmitPayload } from "./SettingsPanel";
 import { ConfigManager, type AppConfig } from "../platform/store";
 
 class MockElement {
@@ -120,7 +120,7 @@ class MockContainer {
 describe("SettingsPanel", () => {
   let container: MockContainer;
   let configManager: ConfigManager;
-  let emittedEvents: Array<{ event: string; payload: AppConfig }>;
+  let emittedEvents: Array<{ event: string; payload: SettingsEmitPayload }>;
   let mockPickFile: () => Promise<string | null>;
 
   beforeEach(() => {
@@ -183,7 +183,7 @@ describe("SettingsPanel", () => {
 
     expect(emittedEvents).toHaveLength(1);
     expect(emittedEvents[0].event).toBe("settings-updated");
-    expect(emittedEvents[0].payload.avatarPath).toBe(
+    expect((emittedEvents[0].payload as AppConfig).avatarPath).toBe(
       "/path/to/custom_avatar.vrm"
     );
   });
@@ -208,7 +208,7 @@ describe("SettingsPanel", () => {
     expect(clearBtn?.disabled).toBe(true);
 
     expect(emittedEvents).toHaveLength(1);
-    expect(emittedEvents[0].payload.avatarPath).toBeNull();
+    expect((emittedEvents[0].payload as AppConfig).avatarPath).toBeNull();
   });
 
   it("clamps avatar scale to range [0.5, 2.0] and updates UI", async () => {
@@ -218,7 +218,7 @@ describe("SettingsPanel", () => {
     // Valid scale
     await panel.handleScaleChange(1.4);
     expect(panel.getConfig().avatarScale).toBe(1.4);
-    expect(emittedEvents[0].payload.avatarScale).toBe(1.4);
+    expect((emittedEvents[0].payload as AppConfig).avatarScale).toBe(1.4);
 
     // Below minimum
     await panel.handleScaleChange(0.2);
@@ -246,7 +246,7 @@ describe("SettingsPanel", () => {
     expect(btn30?.classList.contains("selected")).toBe(false);
 
     expect(emittedEvents).toHaveLength(1);
-    expect(emittedEvents[0].payload.fpsCap).toBe(60);
+    expect((emittedEvents[0].payload as AppConfig).fpsCap).toBe(60);
   });
 
   it("resets window position to center and emits update", async () => {
@@ -263,7 +263,7 @@ describe("SettingsPanel", () => {
     expect(panel.getConfig().windowY).toBeNull();
 
     expect(emittedEvents).toHaveLength(1);
-    expect(emittedEvents[0].payload.windowX).toBeNull();
-    expect(emittedEvents[0].payload.windowY).toBeNull();
+    expect((emittedEvents[0].payload as AppConfig).windowX).toBeNull();
+    expect((emittedEvents[0].payload as AppConfig).windowY).toBeNull();
   });
 });
