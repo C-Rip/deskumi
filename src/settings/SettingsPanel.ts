@@ -777,6 +777,9 @@ export class SettingsPanel {
     // Load actual avatar into preview scene
     await this.loadPreviewModel();
 
+    // Synchronize preview camera FOV and aspect with active frame dimensions
+    this.updatePreviewGuide();
+
     // Start render loop
     const renderLoop = () => {
       if (this.previewRenderer && this.previewScene && this.previewCamera) {
