@@ -60,6 +60,12 @@ export class SettingsPanel {
   private previewGuideDimText: HTMLElement | null = null;
   private previewCanvas: HTMLCanvasElement | null = null;
   private guidesToggleBtn: HTMLButtonElement | null = null;
+  private sightSvgEl: SVGSVGElement | null = null;
+  private sightLineEl: SVGLineElement | null = null;
+  private sightReticleCircleEl: SVGCircleElement | null = null;
+  private sightReticleRingEl: SVGCircleElement | null = null;
+  private guideLineVEl: HTMLElement | null = null;
+  private guideLineHEl: HTMLElement | null = null;
   private showGuides = true;
 
   // Real 3D Preview Engine
@@ -254,6 +260,15 @@ export class SettingsPanel {
             <span class="fps-counter-badge">FPS Render: ${(this.config.fpsCap ?? 30).toFixed(1)}</span>
             <div class="preview-overlay-guide" id="preview-guide">
               <canvas class="preview-stage-canvas" id="preview-canvas"></canvas>
+              <div class="quadrant-line-v" id="guide-line-v"></div>
+              <div class="quadrant-line-h" id="guide-line-h"></div>
+              <svg class="lookat-sight-line" id="guide-sight-svg" style="display: none;">
+                <!-- Sight laser line from character eyes to pointer -->
+                <line id="sight-laser-line" x1="0" y1="0" x2="0" y2="0" stroke="#38bdf8" stroke-width="2" stroke-dasharray="4 3" opacity="0.85" />
+                <!-- Center pointer / eye target reticle -->
+                <circle id="sight-reticle-circle" cx="0" cy="0" r="5" fill="#38bdf8" opacity="0.9" />
+                <circle id="sight-reticle-ring" cx="0" cy="0" r="9" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.6" />
+              </svg>
               <span class="guide-pill-top" id="preview-dim-text">${fWidth} × ${fHeight} px</span>
               <span class="guide-pill-bottom">Área de render</span>
             </div>
@@ -307,6 +322,16 @@ export class SettingsPanel {
     this.previewGuideDimText =
       this.container.querySelector("#preview-dim-text");
     this.previewCanvas = this.container.querySelector("#preview-canvas");
+    this.sightSvgEl = this.container.querySelector("#guide-sight-svg");
+    this.sightLineEl = this.container.querySelector("#sight-laser-line");
+    this.sightReticleCircleEl = this.container.querySelector(
+      "#sight-reticle-circle"
+    );
+    this.sightReticleRingEl = this.container.querySelector(
+      "#sight-reticle-ring"
+    );
+    this.guideLineVEl = this.container.querySelector("#guide-line-v");
+    this.guideLineHEl = this.container.querySelector("#guide-line-h");
     this.toastEl = this.container.querySelector("#settings-status-toast");
 
     const pickBtn =
@@ -383,6 +408,15 @@ export class SettingsPanel {
         }
         if (this.previewGuide) {
           this.previewGuide.style.display = this.showGuides ? "flex" : "none";
+        }
+        if (this.guideLineVEl) {
+          this.guideLineVEl.style.display = this.showGuides ? "block" : "none";
+        }
+        if (this.guideLineHEl) {
+          this.guideLineHEl.style.display = this.showGuides ? "block" : "none";
+        }
+        if (this.sightSvgEl && !this.showGuides) {
+          this.sightSvgEl.style.display = "none";
         }
       });
     }
@@ -473,6 +507,65 @@ export class SettingsPanel {
           if (this.previewCanvas) {
             this.previewCanvas.style.cursor = "ns-resize";
           }
+        }
+      });
+
+      // Visual LookAt interactive tracking & ray casting in preview stage
+      this.previewCanvas.addEventListener("mousemove", (e: MouseEvent) => {
+        if (this.isPreviewDragging || !this.showGuides || !this.previewCanvas) {
+          return;
+        }
+
+        const rect = this.previewCanvas.getBoundingClientRect();
+        const mouseCanvasX = e.clientX - rect.left;
+        const mouseCanvasY = e.clientY - rect.top;
+
+        // Update Sight SVG Laser & Reticle
+        if (this.sightSvgEl) {
+          this.sightSvgEl.style.display = "block";
+        }
+        if (this.sightReticleCircleEl && this.sightReticleRingEl) {
+          this.sightReticleCircleEl.setAttribute("cx", String(mouseCanvasX));
+          this.sightReticleCircleEl.setAttribute("cy", String(mouseCanvasY));
+          this.sightReticleRingEl.setAttribute("cx", String(mouseCanvasX));
+          this.sightReticleRingEl.setAttribute("cy", String(mouseCanvasY));
+        }
+
+        // Project avatar eyes / head to 2D canvas coordinates
+        if (
+          this.sightLineEl &&
+          this.previewVRM &&
+          this.previewCamera &&
+          rect.width > 0 &&
+          rect.height > 0
+        ) {
+          const headPos = new THREE.Vector3();
+          const headBone =
+            this.previewVRM.humanoid?.getNormalizedBoneNode("head");
+          if (headBone) {
+            headBone.getWorldPosition(headPos);
+          } else {
+            headPos.copy(this.previewVRM.scene.position).add({
+              x: 0,
+              y: 1.3,
+              z: 0
+            } as THREE.Vector3);
+          }
+
+          const headNdc = headPos.project(this.previewCamera);
+          const eyeScreenX = ((headNdc.x + 1) / 2) * rect.width;
+          const eyeScreenY = ((-headNdc.y + 1) / 2) * rect.height;
+
+          this.sightLineEl.setAttribute("x1", String(eyeScreenX));
+          this.sightLineEl.setAttribute("y1", String(eyeScreenY));
+          this.sightLineEl.setAttribute("x2", String(mouseCanvasX));
+          this.sightLineEl.setAttribute("y2", String(mouseCanvasY));
+        }
+      });
+
+      this.previewCanvas.addEventListener("mouseleave", () => {
+        if (this.sightSvgEl) {
+          this.sightSvgEl.style.display = "none";
         }
       });
     }
