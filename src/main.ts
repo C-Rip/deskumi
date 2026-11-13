@@ -185,9 +185,17 @@ void listen<AppConfig>("settings-updated", async (event) => {
     setActiveFps(newConfig.fpsCap);
   }
 
-  // 2. Update Avatar Scale
-  if (typeof newConfig.avatarScale === "number" && currentAvatarContext) {
-    currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
+  // 2. Update Avatar Scale & Offset Position
+  if (currentAvatarContext) {
+    if (typeof newConfig.avatarScale === "number") {
+      currentAvatarContext.vrm.scene.scale.setScalar(newConfig.avatarScale);
+    }
+    if (typeof newConfig.avatarOffsetX === "number") {
+      currentAvatarContext.vrm.scene.position.x = newConfig.avatarOffsetX;
+    }
+    if (typeof newConfig.avatarOffsetY === "number") {
+      currentAvatarContext.vrm.scene.position.y = newConfig.avatarOffsetY;
+    }
   }
 
   // 3. Update Transparent Window Dimensions (Frame Size)
@@ -289,6 +297,12 @@ async function initAvatar(): Promise<void> {
       const { vrm, blobUrl } = await loadAvatarModel(avatarPath);
       currentAvatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
       currentAvatarContext.vrm.scene.scale.setScalar(avatarScale);
+      if (typeof config.avatarOffsetX === "number") {
+        currentAvatarContext.vrm.scene.position.x = config.avatarOffsetX;
+      }
+      if (typeof config.avatarOffsetY === "number") {
+        currentAvatarContext.vrm.scene.position.y = config.avatarOffsetY;
+      }
       activeAvatarPath = avatarPath;
       console.log("[deskumi] Loaded saved avatar successfully");
     } catch (err) {
@@ -305,6 +319,12 @@ async function initAvatar(): Promise<void> {
     const { vrm } = await loadAvatarModel(sampleAvatarUrl);
     currentAvatarContext = setupAvatarInScene(vrm, sceneManager);
     currentAvatarContext.vrm.scene.scale.setScalar(avatarScale);
+    if (typeof config.avatarOffsetX === "number") {
+      currentAvatarContext.vrm.scene.position.x = config.avatarOffsetX;
+    }
+    if (typeof config.avatarOffsetY === "number") {
+      currentAvatarContext.vrm.scene.position.y = config.avatarOffsetY;
+    }
     console.log("[deskumi] Default sample VRM loaded successfully");
   }
 

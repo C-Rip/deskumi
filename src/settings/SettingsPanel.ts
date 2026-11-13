@@ -63,6 +63,14 @@ export class SettingsPanel {
   private previewRafId: number | null = null;
   private isPoseTesting = false;
 
+  // Preview Pan / Drag state
+  private isPreviewDragging = false;
+  private previewDragStartX = 0;
+  private previewDragStartY = 0;
+  private initialOffsetX = 0;
+  private initialOffsetY = 0;
+  private offsetDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
   constructor(options: SettingsPanelOptions) {
     this.container = options.container;
     this.configManager = options.configManager ?? defaultConfigManager;
@@ -412,6 +420,60 @@ export class SettingsPanel {
         void this.handleSaveAndClose();
       });
     }
+
+    // Bind preview canvas mouse pan / drag
+    if (this.previewCanvas) {
+      this.previewCanvas.style.cursor = "grab";
+
+      this.previewCanvas.addEventListener("mousedown", (e: MouseEvent) => {
+        if (e.button !== 0) return;
+        this.isPreviewDragging = true;
+        this.previewDragStartX = e.clientX;
+        this.previewDragStartY = e.clientY;
+        this.initialOffsetX = this.config.avatarOffsetX ?? 0;
+        this.initialOffsetY = this.config.avatarOffsetY ?? 0;
+        if (this.previewCanvas) {
+          this.previewCanvas.style.cursor = "grabbing";
+        }
+      });
+
+      window.addEventListener("mousemove", (e: MouseEvent) => {
+        if (!this.isPreviewDragging) return;
+        const dx = e.clientX - this.previewDragStartX;
+        const dy = e.clientY - this.previewDragStartY;
+
+        // Map CSS drag delta in preview to 3D world units (sensitivity ~0.005)
+        const newOffsetX = this.initialOffsetX + dx * 0.005;
+        const newOffsetY = this.initialOffsetY - dy * 0.005;
+
+        this.config.avatarOffsetX = newOffsetX;
+        this.config.avatarOffsetY = newOffsetY;
+
+        if (this.previewVRM) {
+          this.previewVRM.scene.position.x = newOffsetX;
+          this.previewVRM.scene.position.y = newOffsetY;
+        }
+
+        void this.emitUpdate();
+
+        if (this.offsetDebounceTimeout !== null) {
+          clearTimeout(this.offsetDebounceTimeout);
+        }
+        this.offsetDebounceTimeout = setTimeout(() => {
+          void this.configManager.set("avatarOffsetX", newOffsetX);
+          void this.configManager.set("avatarOffsetY", newOffsetY);
+        }, 200);
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (this.isPreviewDragging) {
+          this.isPreviewDragging = false;
+          if (this.previewCanvas) {
+            this.previewCanvas.style.cursor = "grab";
+          }
+        }
+      });
+    }
   }
 
   public async handlePickAvatar(): Promise<void> {
@@ -755,6 +817,12 @@ export class SettingsPanel {
 
       const scale = this.config.avatarScale ?? 1.0;
       vrm.scene.scale.setScalar(scale);
+      if (typeof this.config.avatarOffsetX === "number") {
+        vrm.scene.position.x = this.config.avatarOffsetX;
+      }
+      if (typeof this.config.avatarOffsetY === "number") {
+        vrm.scene.position.y = this.config.avatarOffsetY;
+      }
       this.applyPoseTest(this.isPoseTesting);
     } catch (err) {
       console.warn(

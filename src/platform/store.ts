@@ -24,6 +24,10 @@ export interface AppConfig {
   frameWidth: number;
   /** Transparent window frame height in pixels (default 600) */
   frameHeight: number;
+  /** Avatar horizontal offset in 3D world units (default 0) */
+  avatarOffsetX?: number;
+  /** Avatar vertical offset in 3D world units (default 0) */
+  avatarOffsetY?: number;
 }
 
 /**
@@ -38,7 +42,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   autostart: false,
   avatarScale: 1.0,
   frameWidth: 400,
-  frameHeight: 600
+  frameHeight: 600,
+  avatarOffsetX: 0,
+  avatarOffsetY: 0
 };
 
 export const SETTINGS_FILE = "settings.json";
