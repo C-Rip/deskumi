@@ -92,7 +92,7 @@ export function setupAvatarInScene(
   const animationSystem = new AnimationSystem(vrm);
   sceneManager.registerSystem(animationSystem);
 
-  // Register pixel-perfect silhouette hit testing
+  // Register pixel-perfect silhouette hit testing (keep full window pointer active for full-frame LookAt)
   const inputRegionSystem = new AvatarInputRegionSystem(
     vrm,
     sceneManager.camera,
@@ -100,7 +100,8 @@ export function setupAvatarInScene(
       renderer: sceneManager.renderer,
       scene: sceneManager.scene,
       downscale: 4,
-      padding: 2
+      padding: 2,
+      fullWindowPointer: true
     }
   );
   sceneManager.registerSystem(inputRegionSystem);

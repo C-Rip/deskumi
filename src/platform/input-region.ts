@@ -75,6 +75,26 @@ export function areRectsEqual(
 }
 
 /**
+ * Checks whether a 2D point (x, y) in window logical coordinates lies inside
+ * any of the provided silhouette/hitbox rectangles.
+ */
+export function isPointInRects(
+  x: number,
+  y: number,
+  rects: readonly Rect[] | null | undefined
+): boolean {
+  if (!rects || rects.length === 0) {
+    return false;
+  }
+  for (const r of rects) {
+    if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Projects the 3D bounding box of an Object3D into 2D screen/client coordinates.
  *
  * @param object The 3D object to measure (e.g. avatar scene root).
@@ -571,6 +591,13 @@ export interface AvatarInputRegionSystemOptions {
    * Padding in pixels around hit regions (default 4 for silhouette, 8 for boxes).
    */
   padding?: number;
+
+  /**
+   * When true, keeps the OS window input region open to the full frame so mousemove
+   * events are tracked across the entire frame, while still extracting silhouette rects
+   * for in-window hit testing (reactions and dragging).
+   */
+  fullWindowPointer?: boolean;
 }
 
 /**
@@ -584,6 +611,8 @@ export class AvatarInputRegionSystem implements System {
   private readonly silhouetteExtractor: SilhouetteExtractor | null = null;
   private readonly renderer?: THREE.WebGLRenderer;
   private readonly scene?: THREE.Scene;
+  private fullWindowPointer = false;
+  private lastCalculatedRects: Rect[] = [];
 
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -614,6 +643,7 @@ export class AvatarInputRegionSystem implements System {
       this.manager = opts.manager ?? defaultInputRegionManager;
       this.renderer = opts.renderer;
       this.scene = opts.scene;
+      this.fullWindowPointer = opts.fullWindowPointer ?? false;
       this.getViewportSize =
         opts.getViewportSize ??
         (() => {
@@ -639,6 +669,37 @@ export class AvatarInputRegionSystem implements System {
     }
   }
 
+  public setFullWindowPointer(enabled: boolean): void {
+    this.fullWindowPointer = enabled;
+    if (enabled) {
+      void this.manager.reset();
+    }
+  }
+
+  public get isFullWindowPointer(): boolean {
+    return this.fullWindowPointer;
+  }
+
+  public getHitRects(): Rect[] {
+    return this.lastCalculatedRects;
+  }
+
+  public isPointOnAvatar(x: number, y: number): boolean {
+    if (this.lastCalculatedRects.length === 0) {
+      return true;
+    }
+    return isPointInRects(x, y, this.lastCalculatedRects);
+  }
+
+  private applyOrStoreRects(rects: Rect[]): void {
+    this.lastCalculatedRects = normalizeRects(rects) ?? [];
+    if (this.fullWindowPointer) {
+      void this.manager.reset();
+    } else {
+      void this.manager.setRegion(this.lastCalculatedRects);
+    }
+  }
+
   update(_dt: number): void {
     void _dt;
     const size = this.getViewportSize();
@@ -654,7 +715,7 @@ export class AvatarInputRegionSystem implements System {
           size.height
         );
         if (silhouetteRects.length > 0) {
-          void this.manager.setRegion(silhouetteRects);
+          this.applyOrStoreRects(silhouetteRects);
           return;
         }
       } catch (err: unknown) {
@@ -680,7 +741,7 @@ export class AvatarInputRegionSystem implements System {
       : null;
 
     if (rects && rects.length > 0) {
-      void this.manager.setRegion(rects);
+      this.applyOrStoreRects(rects);
     } else {
       // 3. Whole avatar bounding box fallback
       const rootObj = this.avatarOrVRM?.scene ?? this.avatarOrVRM;
@@ -693,7 +754,7 @@ export class AvatarInputRegionSystem implements System {
           this.padding
         );
         if (rect) {
-          void this.manager.setRegion([rect]);
+          this.applyOrStoreRects([rect]);
         }
       }
     }

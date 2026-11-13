@@ -45,9 +45,16 @@ let savePositionTimeout: ReturnType<typeof setTimeout> | null = null;
 let currentAvatarContext: LoadedAvatarContext | null = null;
 let activeAvatarPath: string | null = null;
 
-// Enable native window dragging with primary mouse button when dragging
+// Enable native window dragging with primary mouse button ONLY when dragging on avatar silhouette
 setupWindowDrag({
   threshold: 5,
+  canDragAt: (clientX, clientY) => {
+    if (!currentAvatarContext) return false;
+    return currentAvatarContext.inputRegionSystem.isPointOnAvatar(
+      clientX,
+      clientY
+    );
+  },
   onDragStart: () => {
     isDragging = true;
   }
@@ -70,13 +77,20 @@ window.addEventListener("mouseup", () => {
   }, 50);
 });
 
-// Trigger reaction on avatar click (if not dragged)
+// Trigger reaction on avatar click ONLY if clicked inside avatar silhouette (and not dragged)
 window.addEventListener("click", (event) => {
   if (isDragging) {
     return;
   }
   if (event.button === 0 && currentAvatarContext) {
-    console.log("[deskumi] Avatar clicked! Triggering reaction");
+    const isHit = currentAvatarContext.inputRegionSystem.isPointOnAvatar(
+      event.clientX,
+      event.clientY
+    );
+    if (!isHit) {
+      return;
+    }
+    console.log("[deskumi] Avatar silhouette clicked! Triggering reaction");
     currentAvatarContext.reactionSystem.triggerRandom();
   }
 });
@@ -114,10 +128,14 @@ sceneManager.registerSystem({
           currentAvatarContext.vrm,
           currentAvatarContext.lookAtSystem
         );
+        debugOverlay.updateHitboxes(
+          currentAvatarContext.inputRegionSystem.getHitRects()
+        );
+      } else {
+        debugOverlay.updateHitboxes(
+          defaultInputRegionManager.getLastAppliedRects()
+        );
       }
-      debugOverlay.updateHitboxes(
-        defaultInputRegionManager.getLastAppliedRects()
-      );
       debugOverlay.update();
     }
   },
@@ -125,41 +143,6 @@ sceneManager.registerSystem({
     debugOverlay.dispose();
   }
 });
-
-// Periodic background pointer tracker in Linux/X11 to track mouse across entire transparent frame
-// even in click-through zones outside the avatar silhouette
-let isTrackingPointer = false;
-setInterval(async () => {
-  if (isTrackingPointer || !currentAvatarContext) {
-    return;
-  }
-  isTrackingPointer = true;
-  try {
-    const pos = await invoke<[number, number] | null>(
-      "get_window_cursor_position"
-    );
-    if (pos && currentAvatarContext) {
-      const [px, py] = pos;
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const isInsideFrame = px >= 0 && px <= w && py >= 0 && py <= h;
-
-      if (isInsideFrame) {
-        const ndcX = (px / w) * 2 - 1;
-        const ndcY = -(py / h) * 2 + 1;
-        currentAvatarContext.lookAtSystem.setCursorNdc(ndcX, ndcY);
-        debugOverlay.setCursor(px, py, true);
-      } else {
-        currentAvatarContext.lookAtSystem.setMouseOutside(true);
-        debugOverlay.setCursor(px, py, false);
-      }
-    }
-  } catch {
-    // Non-Linux or failure: standard DOM mousemove handles it
-  } finally {
-    isTrackingPointer = false;
-  }
-}, 33);
 
 export const powerSaveController = new PowerSaveController(sceneManager, {
   activeFps: 30,
@@ -344,6 +327,11 @@ void listen<AppConfig>("settings-updated", async (event) => {
   // 5. Update Developer Debug Overlay
   if (typeof newConfig.debugOverlay === "boolean") {
     debugOverlay.setEnabled(newConfig.debugOverlay);
+  }
+
+  // 6. Ensure full window pointer tracking remains active while keeping silhouette hit-test
+  if (currentAvatarContext) {
+    currentAvatarContext.inputRegionSystem.setFullWindowPointer(true);
   }
 });
 
