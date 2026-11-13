@@ -22,6 +22,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             platform::get_platform_caps,
             platform::set_window_desktop_position,
+            platform::set_window_desktop_size,
             input_region::set_input_region,
             settings_window::open_settings_window
         ])

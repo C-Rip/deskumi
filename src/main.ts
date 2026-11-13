@@ -23,6 +23,7 @@ import {
   type LoadedAvatarContext
 } from "./platform/avatar-picker";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import "./styles/app.css";
 
@@ -235,18 +236,29 @@ void listen<AppConfig>("settings-updated", async (event) => {
     typeof newConfig.frameHeight === "number"
   ) {
     try {
-      const win = getCurrentWindow();
-      await win.setResizable(true);
-      await win.setSize(
-        new LogicalSize(newConfig.frameWidth, newConfig.frameHeight)
-      );
-      await win.setResizable(false);
+      await invoke("set_window_desktop_size", {
+        width: Math.round(newConfig.frameWidth),
+        height: Math.round(newConfig.frameHeight)
+      });
       sceneManager.resize(newConfig.frameWidth, newConfig.frameHeight);
       console.log(
-        `[deskumi] Resized transparent window frame to ${newConfig.frameWidth}x${newConfig.frameHeight}`
+        `[deskumi] Resized transparent window frame via native GTK to ${newConfig.frameWidth}x${newConfig.frameHeight}`
       );
-    } catch (err) {
-      console.warn("[deskumi] Failed to resize transparent window:", err);
+    } catch {
+      try {
+        const win = getCurrentWindow();
+        await win.setResizable(true);
+        await win.setSize(
+          new LogicalSize(newConfig.frameWidth, newConfig.frameHeight)
+        );
+        await win.setResizable(false);
+        sceneManager.resize(newConfig.frameWidth, newConfig.frameHeight);
+        console.log(
+          `[deskumi] Resized transparent window frame to ${newConfig.frameWidth}x${newConfig.frameHeight}`
+        );
+      } catch (err) {
+        console.warn("[deskumi] Failed to resize transparent window:", err);
+      }
     }
   }
 
@@ -314,16 +326,27 @@ async function initAvatar(): Promise<void> {
 
   if (frameWidth !== 400 || frameHeight !== 600) {
     try {
-      const win = getCurrentWindow();
-      await win.setResizable(true);
-      await win.setSize(new LogicalSize(frameWidth, frameHeight));
-      await win.setResizable(false);
+      await invoke("set_window_desktop_size", {
+        width: Math.round(frameWidth),
+        height: Math.round(frameHeight)
+      });
       sceneManager.resize(frameWidth, frameHeight);
-    } catch (err) {
-      console.warn(
-        "[deskumi] Failed to set initial transparent window size:",
-        err
+      console.log(
+        `[deskumi] Initialized transparent window frame via native GTK to ${frameWidth}x${frameHeight}`
       );
+    } catch {
+      try {
+        const win = getCurrentWindow();
+        await win.setResizable(true);
+        await win.setSize(new LogicalSize(frameWidth, frameHeight));
+        await win.setResizable(false);
+        sceneManager.resize(frameWidth, frameHeight);
+      } catch (err) {
+        console.warn(
+          "[deskumi] Failed to set initial transparent window size:",
+          err
+        );
+      }
     }
   }
 
