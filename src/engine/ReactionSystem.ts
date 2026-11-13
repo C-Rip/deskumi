@@ -118,9 +118,11 @@ export class ReactionSystem implements System {
       this.vrm.expressionManager.setValue(this.activeReaction.preset, 0);
     }
 
-    // Capture the current base position at the exact moment the reaction starts
-    if (this.vrm.scene) {
+    // Capture the base position only when starting from rest (not mid-bounce)
+    // so rapid consecutive clicks never accumulate vertical elevation
+    if (!this.activeReaction && this.vrm.scene) {
       this.initialScenePosY = this.vrm.scene.position.y;
+      this.hasCapturedInitialPos = true;
     }
 
     this.activeReaction = {
@@ -140,6 +142,18 @@ export class ReactionSystem implements System {
     const choices: ReactionType[] = ["happy", "surprised", "relaxed", "wink"];
     const chosen = choices[Math.floor(Math.random() * choices.length)];
     this.trigger(chosen);
+  }
+
+  /**
+   * Updates the baseline vertical offset (e.g. when changed from settings panel)
+   * so ongoing or future reactions return to the exact new vertical position.
+   */
+  setBasePositionY(y: number): void {
+    this.initialScenePosY = y;
+    this.hasCapturedInitialPos = true;
+    if (!this.activeReaction && this.vrm.scene) {
+      this.vrm.scene.position.y = y;
+    }
   }
 
   /**

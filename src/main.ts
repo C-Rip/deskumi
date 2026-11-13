@@ -210,17 +210,13 @@ void listen<boolean>("tray-autostart-changed", (event) => {
   void defaultConfigManager.set("autostart", event.payload);
 });
 
-// Listen for "settings-window-visibility" to pause avatar rendering when settings is open
+// Listen for "settings-window-visibility" (keep main avatar running continuously without pausing)
 void listen<boolean>("settings-window-visibility", (event) => {
   const isSettingsOpen = event.payload;
   console.log(
-    `[deskumi] Settings window visibility changed: ${String(isSettingsOpen)}`
+    `[deskumi] Settings window visibility changed: ${String(isSettingsOpen)} (main avatar stays active)`
   );
-  if (isSettingsOpen) {
-    sceneManager.pause();
-  } else {
-    sceneManager.resume();
-  }
+  sceneManager.resume();
 });
 
 // Listen for "settings-updated" event from settings window
@@ -245,6 +241,9 @@ void listen<AppConfig>("settings-updated", async (event) => {
     }
     if (typeof newConfig.avatarOffsetY === "number") {
       currentAvatarContext.vrm.scene.position.y = newConfig.avatarOffsetY;
+      currentAvatarContext.reactionSystem.setBasePositionY(
+        newConfig.avatarOffsetY
+      );
     }
   }
 
@@ -392,6 +391,9 @@ async function initAvatar(): Promise<void> {
       }
       if (typeof config.avatarOffsetY === "number") {
         currentAvatarContext.vrm.scene.position.y = config.avatarOffsetY;
+        currentAvatarContext.reactionSystem.setBasePositionY(
+          config.avatarOffsetY
+        );
       }
       activeAvatarPath = avatarPath;
       console.log("[deskumi] Loaded saved avatar successfully");
@@ -414,6 +416,9 @@ async function initAvatar(): Promise<void> {
     }
     if (typeof config.avatarOffsetY === "number") {
       currentAvatarContext.vrm.scene.position.y = config.avatarOffsetY;
+      currentAvatarContext.reactionSystem.setBasePositionY(
+        config.avatarOffsetY
+      );
     }
     console.log("[deskumi] Default sample VRM loaded successfully");
   }

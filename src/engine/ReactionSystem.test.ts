@@ -117,6 +117,29 @@ describe("ReactionSystem", () => {
     expect(vrm.scene.position.y).toBe(0);
   });
 
+  it("prevents vertical elevation drift when triggered repeatedly mid-bounce", () => {
+    const vrm = createMockVRM();
+    vrm.scene.position.y = -1.5;
+
+    const system = new ReactionSystem(vrm, {
+      duration: 1.0,
+      bounceAmplitude: 0.05
+    });
+
+    // Rapid clicks while mid-bounce
+    for (let i = 0; i < 20; i++) {
+      system.trigger("happy");
+      system.update(0.3);
+    }
+
+    // Should never exceed basePositionY + bounceAmplitude
+    expect(vrm.scene.position.y).toBeLessThanOrEqual(-1.5 + 0.05 + 1e-6);
+
+    // Let reaction complete
+    system.update(1.0);
+    expect(vrm.scene.position.y).toBeCloseTo(-1.5, 5);
+  });
+
   it("cleans up on dispose", () => {
     const vrm = createMockVRM();
     const system = new ReactionSystem(vrm);
