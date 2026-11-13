@@ -612,15 +612,23 @@ export class AvatarInputRegionSystem implements System {
       // Options object signature
       const opts = (optionsOrManager ?? {}) as AvatarInputRegionSystemOptions;
       this.manager = opts.manager ?? defaultInputRegionManager;
-      this.getViewportSize =
-        opts.getViewportSize ??
-        (() => ({
-          width: typeof window !== "undefined" ? window.innerWidth : 800,
-          height: typeof window !== "undefined" ? window.innerHeight : 600
-        }));
-      this.padding = opts.padding ?? (opts.renderer ? 3 : 8);
       this.renderer = opts.renderer;
       this.scene = opts.scene;
+      this.getViewportSize =
+        opts.getViewportSize ??
+        (() => {
+          if (this.renderer) {
+            const size = this.renderer.getSize(new THREE.Vector2());
+            if (size.x > 0 && size.y > 0) {
+              return { width: size.x, height: size.y };
+            }
+          }
+          return {
+            width: typeof window !== "undefined" ? window.innerWidth : 800,
+            height: typeof window !== "undefined" ? window.innerHeight : 600
+          };
+        });
+      this.padding = opts.padding ?? (opts.renderer ? 3 : 8);
 
       if (this.renderer && this.scene) {
         this.silhouetteExtractor = new SilhouetteExtractor({
