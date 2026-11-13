@@ -92,6 +92,12 @@ export class DebugOverlay {
     });
   }
 
+  public setCursor(x: number, y: number, inside: boolean): void {
+    this.cursorX = x;
+    this.cursorY = y;
+    this.hasCursor = inside;
+  }
+
   public setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
     if (this.overlayEl) {

@@ -135,6 +135,57 @@ pub fn get_platform_caps() -> Result<PlatformCaps, AppError> {
 }
 
 #[tauri::command]
+pub fn get_window_cursor_position(
+    window: tauri::WebviewWindow,
+) -> Result<Option<(i32, i32)>, AppError> {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::Cast;
+        use gtk::prelude::*;
+        use std::sync::mpsc::channel;
+        use tauri::Manager;
+
+        let app = window.app_handle().clone();
+        let (tx, rx) = channel();
+
+        app.run_on_main_thread(move || {
+            let res = (|| -> Option<(i32, i32)> {
+                let display = gtk::gdk::Display::default()?;
+                let seat = display.default_seat()?;
+                let pointer = seat.pointer()?;
+                let (_screen, px, py) = pointer.position();
+
+                for widget in gtk::Window::list_toplevels() {
+                    if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                        let title = win.title().map(|t| t.to_string()).unwrap_or_default();
+                        if title == "Deskumi" {
+                            if let Some(gdk_win) = win.window() {
+                                let (_, ox, oy) = gdk_win.origin();
+                                return Some((px - ox, py - oy));
+                            }
+                        }
+                    }
+                }
+                None
+            })();
+            let _ = tx.send(res);
+        })
+        .map_err(|e| AppError::Platform(format!("Failed to query pointer on main thread: {e}")))?;
+
+        let pos = rx
+            .recv()
+            .map_err(|e| AppError::Platform(format!("Failed to receive pointer result: {e}")))?;
+        Ok(pos)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
 pub fn set_window_desktop_size(
     window: tauri::WebviewWindow,
     width: i32,

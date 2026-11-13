@@ -23,6 +23,7 @@ pub fn run() {
             platform::get_platform_caps,
             platform::set_window_desktop_position,
             platform::set_window_desktop_size,
+            platform::get_window_cursor_position,
             input_region::set_input_region,
             settings_window::open_settings_window
         ])

@@ -30,8 +30,6 @@ export interface AppConfig {
   avatarOffsetY?: number;
   /** Developer mode / debugging overlay visible on desktop window (default false) */
   debugOverlay?: boolean;
-  /** Disable click-through so the entire window bounds captures cursor events (default false) */
-  fullWindowInteractive?: boolean;
 }
 
 /**
@@ -49,8 +47,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   frameHeight: 600,
   avatarOffsetX: 0,
   avatarOffsetY: 0,
-  debugOverlay: false,
-  fullWindowInteractive: true
+  debugOverlay: false
 };
 
 export const SETTINGS_FILE = "settings.json";

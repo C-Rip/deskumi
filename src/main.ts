@@ -126,6 +126,41 @@ sceneManager.registerSystem({
   }
 });
 
+// Periodic background pointer tracker in Linux/X11 to track mouse across entire transparent frame
+// even in click-through zones outside the avatar silhouette
+let isTrackingPointer = false;
+setInterval(async () => {
+  if (isTrackingPointer || !currentAvatarContext) {
+    return;
+  }
+  isTrackingPointer = true;
+  try {
+    const pos = await invoke<[number, number] | null>(
+      "get_window_cursor_position"
+    );
+    if (pos && currentAvatarContext) {
+      const [px, py] = pos;
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const isInsideFrame = px >= 0 && px <= w && py >= 0 && py <= h;
+
+      if (isInsideFrame) {
+        const ndcX = (px / w) * 2 - 1;
+        const ndcY = -(py / h) * 2 + 1;
+        currentAvatarContext.lookAtSystem.setCursorNdc(ndcX, ndcY);
+        debugOverlay.setCursor(px, py, true);
+      } else {
+        currentAvatarContext.lookAtSystem.setMouseOutside(true);
+        debugOverlay.setCursor(px, py, false);
+      }
+    }
+  } catch {
+    // Non-Linux or failure: standard DOM mousemove handles it
+  } finally {
+    isTrackingPointer = false;
+  }
+}, 33);
+
 export const powerSaveController = new PowerSaveController(sceneManager, {
   activeFps: 30,
   idleFps: 10,
@@ -310,16 +345,6 @@ void listen<AppConfig>("settings-updated", async (event) => {
   if (typeof newConfig.debugOverlay === "boolean") {
     debugOverlay.setEnabled(newConfig.debugOverlay);
   }
-
-  // 6. Update Full Window Interactive mode
-  if (
-    typeof newConfig.fullWindowInteractive === "boolean" &&
-    currentAvatarContext
-  ) {
-    currentAvatarContext.inputRegionSystem.setFullWindow(
-      newConfig.fullWindowInteractive
-    );
-  }
 });
 
 // Load configured avatar or fallback to official sample avatar
@@ -423,12 +448,6 @@ async function initAvatar(): Promise<void> {
         err
       );
     }
-  }
-
-  // Apply initial Full Window Interactive mode if configured
-  if (currentAvatarContext) {
-    const isFullWindow = config.fullWindowInteractive ?? true;
-    currentAvatarContext.inputRegionSystem.setFullWindow(isFullWindow);
   }
 }
 

@@ -584,7 +584,6 @@ export class AvatarInputRegionSystem implements System {
   private readonly silhouetteExtractor: SilhouetteExtractor | null = null;
   private readonly renderer?: THREE.WebGLRenderer;
   private readonly scene?: THREE.Scene;
-  private isFullWindow = false;
 
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -640,23 +639,8 @@ export class AvatarInputRegionSystem implements System {
     }
   }
 
-  public setFullWindow(fullWindow: boolean): void {
-    this.isFullWindow = fullWindow;
-    if (fullWindow) {
-      void this.manager.reset();
-    }
-  }
-
-  public get fullWindow(): boolean {
-    return this.isFullWindow;
-  }
-
   update(_dt: number): void {
     void _dt;
-    if (this.isFullWindow) {
-      void this.manager.reset();
-      return;
-    }
     const size = this.getViewportSize();
 
     // 1. Pixel-perfect silhouette extraction if renderer & scene are provided
