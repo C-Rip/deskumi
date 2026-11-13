@@ -749,11 +749,7 @@ export class SettingsPanel {
       this.previewScene.add(vrm.scene);
 
       const bounds = centerAndGroundVRM(vrm);
-      const framing = calculatePerspectiveFraming(
-        bounds,
-        this.previewCamera.fov,
-        1.15
-      );
+      const framing = calculatePerspectiveFraming(bounds, 45, 1.15);
       this.previewCamera.position.copy(framing.cameraPosition);
       this.previewCamera.lookAt(framing.target);
 

@@ -51,7 +51,7 @@ export class SceneManager {
 
   /** Reference height used to keep visual 3D scale invariant across window resizes (default: 600px) */
   public referenceHeight = 600;
-  private readonly baseFov: number;
+  public readonly baseFov: number;
 
   constructor(options: SceneManagerOptions = {}) {
     const width =

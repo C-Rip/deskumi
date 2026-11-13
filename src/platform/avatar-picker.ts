@@ -72,10 +72,10 @@ export function setupAvatarInScene(
   // Center horizontally and ground feet at y=0
   const bounds = centerAndGroundVRM(vrm);
 
-  // Framed snug perspective camera
+  // Framed snug perspective camera (always computed against standard baseFov = 45 deg)
   const framing = calculatePerspectiveFraming(
     bounds,
-    sceneManager.camera.fov,
+    sceneManager.baseFov ?? 45,
     1.15
   );
   sceneManager.camera.position.copy(framing.cameraPosition);
