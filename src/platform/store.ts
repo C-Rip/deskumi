@@ -28,6 +28,8 @@ export interface AppConfig {
   avatarOffsetX?: number;
   /** Avatar vertical offset in 3D world units (default 0) */
   avatarOffsetY?: number;
+  /** Developer mode / debugging overlay visible on desktop window (default false) */
+  debugOverlay?: boolean;
 }
 
 /**
@@ -44,7 +46,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   frameWidth: 400,
   frameHeight: 600,
   avatarOffsetX: 0,
-  avatarOffsetY: 0
+  avatarOffsetY: 0,
+  debugOverlay: false
 };
 
 export const SETTINGS_FILE = "settings.json";

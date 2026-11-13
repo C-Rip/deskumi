@@ -3,6 +3,8 @@ import { SceneManager } from "./engine/SceneManager";
 import { PowerSaveController } from "./engine/PowerSaveController";
 import { getPlatformCaps } from "./platform/caps";
 import { setupWindowDrag } from "./platform/drag";
+import { defaultInputRegionManager } from "./platform/input-region";
+import { DebugOverlay } from "./platform/DebugOverlay";
 import {
   defaultConfigManager,
   restoreWindowPosition,
@@ -94,6 +96,33 @@ if (!appContainer) {
 export const sceneManager = new SceneManager({
   container: appContainer,
   fpsCap: 30
+});
+
+export const debugOverlay = new DebugOverlay({
+  container: appContainer,
+  camera: sceneManager.camera
+});
+debugOverlay.init();
+
+// Register debug overlay update hook in SceneManager render loop
+sceneManager.registerSystem({
+  update: () => {
+    if (debugOverlay.enabled) {
+      if (currentAvatarContext) {
+        debugOverlay.updateContext(
+          currentAvatarContext.vrm,
+          currentAvatarContext.lookAtSystem
+        );
+      }
+      debugOverlay.updateHitboxes(
+        defaultInputRegionManager.getLastAppliedRects()
+      );
+      debugOverlay.update();
+    }
+  },
+  dispose: () => {
+    debugOverlay.dispose();
+  }
 });
 
 export const powerSaveController = new PowerSaveController(sceneManager, {
@@ -262,6 +291,11 @@ void listen<AppConfig>("settings-updated", async (event) => {
       console.warn("[deskumi] Failed to center window on reset:", err);
     }
   }
+
+  // 5. Update Developer Debug Overlay
+  if (typeof newConfig.debugOverlay === "boolean") {
+    debugOverlay.setEnabled(newConfig.debugOverlay);
+  }
 });
 
 // Load configured avatar or fallback to official sample avatar
@@ -291,6 +325,10 @@ async function initAvatar(): Promise<void> {
 
   if (config.fpsCap) {
     sceneManager.fpsCap = config.fpsCap;
+  }
+
+  if (typeof config.debugOverlay === "boolean") {
+    debugOverlay.setEnabled(config.debugOverlay);
   }
 
   if (avatarPath) {

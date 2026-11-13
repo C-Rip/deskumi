@@ -238,6 +238,23 @@ export class SettingsPanel {
               <button type="button" class="fps-btn" data-fps="120">120 FPS</button>
             </div>
           </section>
+
+          <!-- 5. Developer Mode / Herramientas de Desarrollador -->
+          <section class="settings-card" data-section="dev-tools">
+            <div class="card-header-row">
+              <div class="card-title-group">
+                <span class="card-title-icon">🛠️</span>
+                <h2 class="settings-card-title">Herramientas de Desarrollador</h2>
+              </div>
+              <span class="status-indicator-tag" style="background: rgba(244,63,94,0.15); color: #f43f5e;">Depuración</span>
+            </div>
+            <p class="settings-card-description">Muestra en la ventana del personaje: contorno del marco, ejes de 4 cuadrantes, láser/retícula de mirada y hitboxes en verde.</p>
+            <div style="margin-top: 10px;">
+              <button type="button" class="btn-secondary" id="btn-toggle-dev-overlay" style="width: 100%; justify-content: center; font-size: 12px; padding: 8px;">
+                ${this.config.debugOverlay ? "✓ Overlay de depuración ACTIVO" : "Activar Overlay en el Personaje"}
+              </button>
+            </div>
+          </section>
         </div>
 
         <!-- Right Column: Live Simulation Stage -->
@@ -432,6 +449,28 @@ export class SettingsPanel {
           this.isPoseTesting
             ? "Pose Test (Brazos extendidos)"
             : "Pose Test OFF (Reposo)"
+        );
+      });
+    }
+
+    const devOverlayBtn = this.container.querySelector<HTMLButtonElement>(
+      "#btn-toggle-dev-overlay"
+    );
+    if (devOverlayBtn) {
+      devOverlayBtn.addEventListener("click", async () => {
+        const nextState = !this.config.debugOverlay;
+        this.config.debugOverlay = nextState;
+        devOverlayBtn.textContent = nextState
+          ? "✓ Overlay de depuración ACTIVO"
+          : "Activar Overlay en el Personaje";
+        devOverlayBtn.style.color = nextState ? "#10b981" : "";
+        devOverlayBtn.style.borderColor = nextState ? "#10b981" : "";
+        await this.configManager.set("debugOverlay", nextState);
+        await this.emitUpdate();
+        this.showToast(
+          nextState
+            ? "Debug Overlay activado en ventana"
+            : "Debug Overlay desactivado"
         );
       });
     }
