@@ -14,6 +14,7 @@ import {
   calculatePerspectiveFraming
 } from "../engine/AvatarLoader";
 import type { VRM } from "@pixiv/three-vrm";
+import { LookAtSystem } from "../engine/LookAtSystem";
 import sampleAvatarUrl from "../../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
 
 export type SettingsEmitPayload = AppConfig | boolean | unknown;
@@ -73,6 +74,7 @@ export class SettingsPanel {
   private previewCamera: THREE.PerspectiveCamera | null = null;
   private previewRenderer: THREE.WebGLRenderer | null = null;
   private previewVRM: VRM | null = null;
+  private previewLookAt: LookAtSystem | null = null;
   private previewBlobUrl?: string;
   private previewRafId: number | null = null;
   private isPoseTesting = false;
@@ -559,6 +561,13 @@ export class SettingsPanel {
         const mouseCanvasX = e.clientX - rect.left;
         const mouseCanvasY = e.clientY - rect.top;
 
+        // Drive real 3D LookAt tracking in preview model
+        if (this.previewLookAt && rect.width > 0 && rect.height > 0) {
+          const ndcX = (mouseCanvasX / rect.width) * 2 - 1;
+          const ndcY = -(mouseCanvasY / rect.height) * 2 + 1;
+          this.previewLookAt.setCursorNdc(ndcX, ndcY);
+        }
+
         // Update Sight SVG Laser & Reticle
         if (this.sightSvgEl) {
           this.sightSvgEl.style.display = "block";
@@ -603,6 +612,9 @@ export class SettingsPanel {
       });
 
       this.previewCanvas.addEventListener("mouseleave", () => {
+        if (this.previewLookAt) {
+          this.previewLookAt.setMouseOutside(true);
+        }
         if (this.sightSvgEl) {
           this.sightSvgEl.style.display = "none";
         }
@@ -918,6 +930,9 @@ export class SettingsPanel {
     // Start render loop
     const renderLoop = () => {
       if (this.previewRenderer && this.previewScene && this.previewCamera) {
+        if (this.previewLookAt) {
+          this.previewLookAt.update(0.016);
+        }
         if (this.previewVRM) {
           this.previewVRM.update(0.016);
         }
@@ -932,6 +947,10 @@ export class SettingsPanel {
     if (!this.previewScene || !this.previewCamera) return;
 
     // Clean previous preview avatar
+    if (this.previewLookAt) {
+      this.previewLookAt.dispose();
+      this.previewLookAt = null;
+    }
     if (this.previewVRM) {
       this.previewScene.remove(this.previewVRM.scene);
       this.previewVRM = null;
@@ -952,6 +971,17 @@ export class SettingsPanel {
       const framing = calculatePerspectiveFraming(bounds, 45, 1.15);
       this.previewCamera.position.copy(framing.cameraPosition);
       this.previewCamera.lookAt(framing.target);
+
+      // Create interactive LookAtSystem for preview stage
+      this.previewLookAt = new LookAtSystem(vrm, {
+        camera: this.previewCamera,
+        targetElement: this.previewCanvas ?? undefined,
+        autoAttachListeners: false,
+        damping: 10.0,
+        maxYaw: (30 * Math.PI) / 180,
+        maxPitch: (25 * Math.PI) / 180,
+        enableHeadRotation: true
+      });
 
       const scale = this.config.avatarScale ?? 1.0;
       vrm.scene.scale.setScalar(scale);
