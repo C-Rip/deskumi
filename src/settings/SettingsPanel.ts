@@ -63,11 +63,9 @@ export class SettingsPanel {
   private previewRafId: number | null = null;
   private isPoseTesting = false;
 
-  // Preview Pan / Drag state
+  // Preview Pan / Drag state (locked vertically)
   private isPreviewDragging = false;
-  private previewDragStartX = 0;
   private previewDragStartY = 0;
-  private initialOffsetX = 0;
   private initialOffsetY = 0;
   private offsetDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -421,36 +419,32 @@ export class SettingsPanel {
       });
     }
 
-    // Bind preview canvas mouse pan / drag
+    // Bind preview canvas mouse pan / drag (locked vertically)
     if (this.previewCanvas) {
-      this.previewCanvas.style.cursor = "grab";
+      this.previewCanvas.style.cursor = "ns-resize";
 
       this.previewCanvas.addEventListener("mousedown", (e: MouseEvent) => {
         if (e.button !== 0) return;
         this.isPreviewDragging = true;
-        this.previewDragStartX = e.clientX;
         this.previewDragStartY = e.clientY;
-        this.initialOffsetX = this.config.avatarOffsetX ?? 0;
         this.initialOffsetY = this.config.avatarOffsetY ?? 0;
         if (this.previewCanvas) {
-          this.previewCanvas.style.cursor = "grabbing";
+          this.previewCanvas.style.cursor = "ns-resize";
         }
       });
 
       window.addEventListener("mousemove", (e: MouseEvent) => {
         if (!this.isPreviewDragging) return;
-        const dx = e.clientX - this.previewDragStartX;
         const dy = e.clientY - this.previewDragStartY;
 
-        // Map CSS drag delta in preview to 3D world units (sensitivity ~0.005)
-        const newOffsetX = this.initialOffsetX + dx * 0.005;
+        // Lock horizontal axis to 0 (always centered horizontally / vertical-only drag)
         const newOffsetY = this.initialOffsetY - dy * 0.005;
 
-        this.config.avatarOffsetX = newOffsetX;
+        this.config.avatarOffsetX = 0;
         this.config.avatarOffsetY = newOffsetY;
 
         if (this.previewVRM) {
-          this.previewVRM.scene.position.x = newOffsetX;
+          this.previewVRM.scene.position.x = 0;
           this.previewVRM.scene.position.y = newOffsetY;
         }
 
@@ -460,7 +454,7 @@ export class SettingsPanel {
           clearTimeout(this.offsetDebounceTimeout);
         }
         this.offsetDebounceTimeout = setTimeout(() => {
-          void this.configManager.set("avatarOffsetX", newOffsetX);
+          void this.configManager.set("avatarOffsetX", 0);
           void this.configManager.set("avatarOffsetY", newOffsetY);
         }, 200);
       });
@@ -469,7 +463,7 @@ export class SettingsPanel {
         if (this.isPreviewDragging) {
           this.isPreviewDragging = false;
           if (this.previewCanvas) {
-            this.previewCanvas.style.cursor = "grab";
+            this.previewCanvas.style.cursor = "ns-resize";
           }
         }
       });
@@ -820,9 +814,8 @@ export class SettingsPanel {
 
       const scale = this.config.avatarScale ?? 1.0;
       vrm.scene.scale.setScalar(scale);
-      if (typeof this.config.avatarOffsetX === "number") {
-        vrm.scene.position.x = this.config.avatarOffsetX;
-      }
+      // Keep avatar centered horizontally (X = 0)
+      vrm.scene.position.x = 0;
       if (typeof this.config.avatarOffsetY === "number") {
         vrm.scene.position.y = this.config.avatarOffsetY;
       }
