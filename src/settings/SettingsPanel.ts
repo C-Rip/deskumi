@@ -663,6 +663,14 @@ export class SettingsPanel {
 
     if (this.previewRenderer && this.previewCamera && this.previewCanvas) {
       this.previewCamera.aspect = guideW / (guideH || 1);
+
+      // Keep avatar visual scale invariant across frame resize
+      const baseFov = 45;
+      const baseHalfFovRad = ((baseFov / 2) * Math.PI) / 180;
+      const visibleHalfHeightWorld = Math.tan(baseHalfFovRad);
+      const adaptedHalfFovRad = Math.atan(visibleHalfHeightWorld * (h / 600));
+      this.previewCamera.fov = (adaptedHalfFovRad * 2 * 180) / Math.PI;
+
       this.previewCamera.updateProjectionMatrix();
       this.previewRenderer.setSize(guideW, guideH);
     }

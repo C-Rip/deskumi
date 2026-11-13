@@ -49,6 +49,10 @@ export class SceneManager {
   private isRunning = false;
   private isDisposed = false;
 
+  /** Reference height used to keep visual 3D scale invariant across window resizes (default: 600px) */
+  public referenceHeight = 600;
+  private readonly baseFov: number;
+
   constructor(options: SceneManagerOptions = {}) {
     const width =
       options.width ??
@@ -59,15 +63,17 @@ export class SceneManager {
     const aspect = width / (height || 1);
 
     this.pauseOnHidden = options.pauseOnHidden ?? true;
+    this.referenceHeight = options.height ?? 600;
 
     // 1. Scene
     this.scene = new THREE.Scene();
 
     // 2. Camera
+    const fov = options.cameraFov ?? 45;
+    this.baseFov = fov;
     if (options.camera) {
       this.camera = options.camera;
     } else {
-      const fov = options.cameraFov ?? 45;
       const near = options.cameraNear ?? 0.1;
       const far = options.cameraFar ?? 100;
       this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
@@ -208,6 +214,7 @@ export class SceneManager {
 
   /**
    * Triggers a resize update for the camera and renderer.
+   * Keeps visual scale constant by adapting FOV relative to reference height (600px).
    */
   public resize(width?: number, height?: number): void {
     const w =
@@ -216,6 +223,18 @@ export class SceneManager {
       height ?? (typeof window !== "undefined" ? window.innerHeight : 600);
 
     this.camera.aspect = w / (h || 1);
+
+    // Keep world-space height visual size invariant:
+    // tan(fov / 2) * h = constant
+    if (h > 0 && this.referenceHeight > 0) {
+      const baseHalfFovRad = ((this.baseFov / 2) * Math.PI) / 180;
+      const visibleHalfHeightWorld = Math.tan(baseHalfFovRad);
+      const adaptedHalfFovRad = Math.atan(
+        visibleHalfHeightWorld * (h / this.referenceHeight)
+      );
+      this.camera.fov = (adaptedHalfFovRad * 2 * 180) / Math.PI;
+    }
+
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
   }
