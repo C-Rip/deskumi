@@ -249,9 +249,12 @@ export class SettingsPanel {
               <span class="status-indicator-tag" style="background: rgba(244,63,94,0.15); color: #f43f5e;">Depuración</span>
             </div>
             <p class="settings-card-description">Muestra en la ventana del personaje: contorno del marco, ejes de 4 cuadrantes, láser/retícula de mirada y hitboxes en verde.</p>
-            <div style="margin-top: 10px;">
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
               <button type="button" class="btn-secondary" id="btn-toggle-dev-overlay" style="width: 100%; justify-content: center; font-size: 12px; padding: 8px;">
                 ${this.config.debugOverlay ? "✓ Overlay de depuración ACTIVO" : "Activar Overlay en el Personaje"}
+              </button>
+              <button type="button" class="btn-secondary" id="btn-toggle-interactive-mode" style="width: 100%; justify-content: center; font-size: 12px; padding: 8px; color: ${this.config.fullWindowInteractive !== false ? "#38bdf8" : ""}; border-color: ${this.config.fullWindowInteractive !== false ? "#38bdf8" : ""};">
+                ${this.config.fullWindowInteractive !== false ? "✓ Control por cuadro completo (Cuadro rojo)" : "Control por silueta exacta (Alpha hit-test)"}
               </button>
             </div>
           </section>
@@ -471,6 +474,29 @@ export class SettingsPanel {
           nextState
             ? "Debug Overlay activado en ventana"
             : "Debug Overlay desactivado"
+        );
+      });
+    }
+
+    const interactiveModeBtn = this.container.querySelector<HTMLButtonElement>(
+      "#btn-toggle-interactive-mode"
+    );
+    if (interactiveModeBtn) {
+      interactiveModeBtn.addEventListener("click", async () => {
+        const currentVal = this.config.fullWindowInteractive !== false;
+        const nextVal = !currentVal;
+        this.config.fullWindowInteractive = nextVal;
+        interactiveModeBtn.textContent = nextVal
+          ? "✓ Control por cuadro completo (Cuadro rojo)"
+          : "Control por silueta exacta (Alpha hit-test)";
+        interactiveModeBtn.style.color = nextVal ? "#38bdf8" : "";
+        interactiveModeBtn.style.borderColor = nextVal ? "#38bdf8" : "";
+        await this.configManager.set("fullWindowInteractive", nextVal);
+        await this.emitUpdate();
+        this.showToast(
+          nextVal
+            ? "Control extendido a todo el cuadro rojo"
+            : "Control limitado a la silueta del personaje"
         );
       });
     }

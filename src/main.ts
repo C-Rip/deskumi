@@ -310,6 +310,16 @@ void listen<AppConfig>("settings-updated", async (event) => {
   if (typeof newConfig.debugOverlay === "boolean") {
     debugOverlay.setEnabled(newConfig.debugOverlay);
   }
+
+  // 6. Update Full Window Interactive mode
+  if (
+    typeof newConfig.fullWindowInteractive === "boolean" &&
+    currentAvatarContext
+  ) {
+    currentAvatarContext.inputRegionSystem.setFullWindow(
+      newConfig.fullWindowInteractive
+    );
+  }
 });
 
 // Load configured avatar or fallback to official sample avatar
@@ -413,6 +423,12 @@ async function initAvatar(): Promise<void> {
         err
       );
     }
+  }
+
+  // Apply initial Full Window Interactive mode if configured
+  if (currentAvatarContext) {
+    const isFullWindow = config.fullWindowInteractive ?? true;
+    currentAvatarContext.inputRegionSystem.setFullWindow(isFullWindow);
   }
 }
 
