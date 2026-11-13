@@ -463,15 +463,18 @@ button.btn-danger:hover {
   border: 2px dashed #6366f1;
   border-radius: 6px;
   box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
-  pointer-events: none;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 6px;
   transition: all 0.2s ease;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .guide-pill-top {
+  position: relative;
+  z-index: 2;
   align-self: flex-start;
   font-family: monospace;
   font-size: 10px;
@@ -479,9 +482,12 @@ button.btn-danger:hover {
   color: #fff;
   padding: 1px 6px;
   border-radius: 3px;
+  pointer-events: none;
 }
 
 .guide-pill-bottom {
+  position: relative;
+  z-index: 2;
   align-self: flex-end;
   font-family: monospace;
   font-size: 9px;
@@ -490,6 +496,7 @@ button.btn-danger:hover {
   border: 1px solid var(--border-color);
   padding: 1px 6px;
   border-radius: 3px;
+  pointer-events: none;
 }
 
 .preview-stage-canvas {
@@ -498,6 +505,7 @@ button.btn-danger:hover {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
 }
 
 .fps-counter-badge {

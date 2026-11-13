@@ -239,10 +239,10 @@ export class SettingsPanel {
           <div class="preview-stage-container" id="preview-stage">
             <span class="fps-counter-badge">FPS Render: ${(this.config.fpsCap ?? 30).toFixed(1)}</span>
             <div class="preview-overlay-guide" id="preview-guide">
+              <canvas class="preview-stage-canvas" id="preview-canvas"></canvas>
               <span class="guide-pill-top" id="preview-dim-text">${fWidth} × ${fHeight} px</span>
               <span class="guide-pill-bottom">Área de render</span>
             </div>
-            <canvas class="preview-stage-canvas" id="preview-canvas"></canvas>
           </div>
         </div>
       </main>
@@ -660,23 +660,29 @@ export class SettingsPanel {
     if (this.previewGuideDimText) {
       this.previewGuideDimText.textContent = `${w} × ${h} px`;
     }
+
+    if (this.previewRenderer && this.previewCamera && this.previewCanvas) {
+      this.previewCamera.aspect = guideW / (guideH || 1);
+      this.previewCamera.updateProjectionMatrix();
+      this.previewRenderer.setSize(guideW, guideH);
+    }
   }
 
   private async init3DPreview(): Promise<void> {
-    if (!this.previewCanvas) return;
+    if (!this.previewCanvas || !this.previewGuide) return;
 
-    const width = this.previewCanvas.clientWidth || 400;
-    const height = this.previewCanvas.clientHeight || 500;
+    const width = this.previewGuide.clientWidth || 213;
+    const height = this.previewGuide.clientHeight || 320;
 
-    // Initialize Three.js scene for preview
+    // Initialize Three.js scene for preview matching main window camera (fov 45)
     this.previewScene = new THREE.Scene();
     this.previewCamera = new THREE.PerspectiveCamera(
-      30,
+      45,
       width / height,
       0.1,
       100
     );
-    this.previewCamera.position.set(0, 1.0, 3.5);
+    this.previewCamera.position.set(0, 1.0, 4.0);
 
     this.previewRenderer = new THREE.WebGLRenderer({
       canvas: this.previewCanvas,
