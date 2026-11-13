@@ -71,6 +71,67 @@ export function clampAngles(
   };
 }
 
+/**
+ * Calculates yaw and pitch angles from cursor NDC relative to face/origin NDC,
+ * dividing the window frame into 4 quadrants centered at the face with exponential curve response.
+ *
+ * @param cursorNdc Current pointer NDC coordinates in [-1, 1].
+ * @param originNdc Face or center origin NDC coordinates in [-1, 1].
+ * @param maxYaw Maximum yaw angle in radians.
+ * @param maxPitch Maximum pitch angle in radians.
+ * @param exponent Non-linear curve power (default 1.6: subtle around center, progressive towards edges).
+ */
+export function calcQuadrantExponentialAngles(
+  cursorNdc: { x: number; y: number },
+  originNdc: { x: number; y: number },
+  maxYaw: number,
+  maxPitch: number,
+  exponent = 1.6
+): { yaw: number; pitch: number } {
+  const dx = cursorNdc.x - originNdc.x;
+  const dy = cursorNdc.y - originNdc.y;
+
+  // Horizontal quadrant span from origin to boundaries [-1, 1]
+  const spanX = dx >= 0 ? 1.0 - originNdc.x : originNdc.x - -1.0;
+  const normX = spanX > 1e-4 ? Math.max(-1.0, Math.min(1.0, dx / spanX)) : 0.0;
+  const yaw = Math.sign(normX) * Math.pow(Math.abs(normX), exponent) * maxYaw;
+
+  // Vertical quadrant span from origin to boundaries [-1, 1]
+  const spanY = dy >= 0 ? 1.0 - originNdc.y : originNdc.y - -1.0;
+  const normY = spanY > 1e-4 ? Math.max(-1.0, Math.min(1.0, dy / spanY)) : 0.0;
+  // Three.js Euler X: pitch > 0 tilts head downwards (dy < 0), pitch < 0 tilts head upwards (dy > 0)
+  const pitch =
+    -Math.sign(normY) * Math.pow(Math.abs(normY), exponent) * maxPitch;
+
+  return {
+    yaw: clampAngle(yaw, maxYaw),
+    pitch: clampAngle(pitch, maxPitch)
+  };
+}
+
+/**
+ * Computes a 3D target position from head position, yaw, pitch and forward direction.
+ */
+export function calcTargetFromYawPitch(
+  headPos: THREE.Vector3,
+  yaw: number,
+  pitch: number,
+  targetDistance: number,
+  avatarQuat: THREE.Quaternion | null,
+  out: THREE.Vector3
+): THREE.Vector3 {
+  const cosPitch = Math.cos(pitch);
+  _tempHeadToTarget.set(
+    targetDistance * Math.sin(yaw) * cosPitch,
+    -targetDistance * Math.sin(pitch),
+    targetDistance * Math.cos(yaw) * cosPitch
+  );
+  if (avatarQuat) {
+    _tempHeadToTarget.applyQuaternion(avatarQuat);
+  }
+  return out.copy(headPos).add(_tempHeadToTarget);
+}
+
 // Module-scope temporary vectors for allocation-free updates
 const _ndcVec = new THREE.Vector2();
 const _raycaster = new THREE.Raycaster();
@@ -79,6 +140,7 @@ const _tempCameraDir = new THREE.Vector3();
 const _tempPlaneNormal = new THREE.Vector3();
 const _tempPlanePoint = new THREE.Vector3();
 const _tempHeadPos = new THREE.Vector3();
+const _tempHeadNdc = new THREE.Vector3();
 const _tempAvatarForward = new THREE.Vector3();
 const _tempAvatarQuat = new THREE.Quaternion();
 const _tempHeadToTarget = new THREE.Vector3();
@@ -394,11 +456,25 @@ export class LookAtSystem implements System {
     if (this.isIdle) {
       this.desiredTargetPosition.copy(this.neutralTargetPosition);
     } else {
-      calcTargetPlanePosition(
-        this.camera,
+      // Project head world position to NDC screen coordinates
+      _tempHeadNdc.copy(_tempHeadPos).project(this.camera);
+
+      // Compute natural 4-quadrant exponential angles centered at the face
+      const { yaw, pitch } = calcQuadrantExponentialAngles(
         this.lastMouseNdc,
+        { x: _tempHeadNdc.x, y: _tempHeadNdc.y },
+        this.maxYaw,
+        this.maxPitch
+      );
+
+      // Generate 3D lookAt target point from exponential angles
+      this.vrm.scene.getWorldQuaternion(_tempAvatarQuat);
+      calcTargetFromYawPitch(
         _tempHeadPos,
+        yaw,
+        pitch,
         this.targetDistance,
+        _tempAvatarQuat,
         this.desiredTargetPosition
       );
     }

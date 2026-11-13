@@ -6,6 +6,8 @@ import {
   calcYawPitchFromOffset,
   clampAngle,
   clampAngles,
+  calcQuadrantExponentialAngles,
+  calcTargetFromYawPitch,
   calcTargetPlanePosition,
   LookAtSystem
 } from "./LookAtSystem";
@@ -201,6 +203,88 @@ describe("LookAt pure math & coordinate projection utilities", () => {
     );
     expect(out.x).toBeGreaterThan(0);
     expect(out.z).toBeCloseTo(1.0, 2);
+  });
+
+  it("calcQuadrantExponentialAngles calculates smooth non-linear 4-quadrant response centered at face", () => {
+    const originNdc = { x: 0, y: 0.5 };
+    const maxYaw = Math.PI / 6; // 30 deg
+    const maxPitch = Math.PI / 6; // 30 deg
+
+    // Dead center at face origin -> zero rotation
+    const center = calcQuadrantExponentialAngles(
+      originNdc,
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(center.yaw).toBeCloseTo(0);
+    expect(center.pitch).toBeCloseTo(0);
+
+    // Below face (e.g. at tie: dy < 0) -> positive pitch (tilts head down)
+    const tie = calcQuadrantExponentialAngles(
+      { x: 0, y: 0.1 },
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(tie.yaw).toBeCloseTo(0);
+    expect(tie.pitch).toBeGreaterThan(0); // Tilts down towards tie!
+
+    // Above face (dy > 0) -> negative pitch (tilts head up)
+    const up = calcQuadrantExponentialAngles(
+      { x: 0, y: 0.9 },
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(up.yaw).toBeCloseTo(0);
+    expect(up.pitch).toBeLessThan(0); // Tilts up
+
+    // Right of face (dx > 0) -> positive yaw (tilts head to character's left / viewer's right)
+    const right = calcQuadrantExponentialAngles(
+      { x: 0.5, y: 0.5 },
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(right.yaw).toBeGreaterThan(0);
+    expect(right.pitch).toBeCloseTo(0);
+
+    // Left of face (dx < 0) -> negative yaw
+    const left = calcQuadrantExponentialAngles(
+      { x: -0.5, y: 0.5 },
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(left.yaw).toBeLessThan(0);
+    expect(left.pitch).toBeCloseTo(0);
+
+    // Boundary edge -> exactly clamps to maxYaw / maxPitch
+    const extremeBottomRight = calcQuadrantExponentialAngles(
+      { x: 1.0, y: -1.0 },
+      originNdc,
+      maxYaw,
+      maxPitch
+    );
+    expect(extremeBottomRight.yaw).toBeCloseTo(maxYaw);
+    expect(extremeBottomRight.pitch).toBeCloseTo(maxPitch);
+  });
+
+  it("calcTargetFromYawPitch projects 3D target coordinates preserving yaw and pitch angles", () => {
+    const headPos = new THREE.Vector3(0, 1.8, 0);
+    const targetDistance = 1.0;
+    const out = new THREE.Vector3();
+    const yaw = 0.2;
+    const pitch = 0.3; // Tilts down
+
+    calcTargetFromYawPitch(headPos, yaw, pitch, targetDistance, null, out);
+
+    expect(out.x).toBeGreaterThan(headPos.x); // To viewer's right
+    expect(out.y).toBeLessThan(headPos.y); // Below head
+    expect(out.z).toBeCloseTo(
+      headPos.z + targetDistance * Math.cos(yaw) * Math.cos(pitch)
+    );
   });
 });
 
