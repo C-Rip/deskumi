@@ -52,6 +52,9 @@ export class SceneManager {
   /** Reference height used to keep visual 3D scale invariant across window resizes (default: 600px) */
   public referenceHeight = 600;
   public readonly baseFov: number;
+  /** Logical frame size configured by settings; decouples FOV & cursor scale from HiDPI CSS pixel scaling */
+  private targetFrameWidth: number | null = null;
+  private targetFrameHeight: number | null = null;
 
   constructor(options: SceneManagerOptions = {}) {
     const width =
@@ -216,6 +219,22 @@ export class SceneManager {
    * Triggers a resize update for the camera and renderer.
    * Keeps visual scale constant by adapting FOV relative to reference height (600px).
    */
+  /**
+   * Set the configured logical frame size used for FOV scaling and cursor coordinate
+   * mapping so HiDPI/fractional-scaled windows match PreviewStage exactly.
+   */
+  public setTargetFrameSize(width: number | null, height: number | null): void {
+    this.targetFrameWidth = width && width > 0 ? width : null;
+    this.targetFrameHeight = height && height > 0 ? height : null;
+  }
+
+  public getTargetFrameSize(): { width: number; height: number } | null {
+    if (this.targetFrameWidth && this.targetFrameHeight) {
+      return { width: this.targetFrameWidth, height: this.targetFrameHeight };
+    }
+    return null;
+  }
+
   public resize(width?: number, height?: number): void {
     const w =
       width ?? (typeof window !== "undefined" ? window.innerWidth : 800);
@@ -225,12 +244,13 @@ export class SceneManager {
     this.camera.aspect = w / (h || 1);
 
     // Keep world-space height visual size invariant:
-    // tan(fov / 2) * h = constant
-    if (h > 0 && this.referenceHeight > 0) {
+    // tan(fov / 2) * frameHeight = constant
+    const fovHeight = height ?? this.targetFrameHeight ?? h;
+    if (fovHeight > 0 && this.referenceHeight > 0) {
       const baseHalfFovRad = ((this.baseFov / 2) * Math.PI) / 180;
       const visibleHalfHeightWorld = Math.tan(baseHalfFovRad);
       const adaptedHalfFovRad = Math.atan(
-        visibleHalfHeightWorld * (h / this.referenceHeight)
+        visibleHalfHeightWorld * (fovHeight / this.referenceHeight)
       );
       this.camera.fov = (adaptedHalfFovRad * 2 * 180) / Math.PI;
     }

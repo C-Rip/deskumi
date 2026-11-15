@@ -6,9 +6,6 @@ import {
   createVRMAnimationClip,
   type VRMAnimation
 } from "@pixiv/three-vrm-animation";
-import { isTauri } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 
 /**
  * Options for loading a VRM Animation (.vrma) file.
@@ -18,6 +15,8 @@ export interface VRMALoadOptions {
   onProgress?: (event: ProgressEvent<EventTarget>) => void;
   /** Optional custom Three.js LoadingManager */
   loadingManager?: THREE.LoadingManager;
+  /** Optional platform adapter to read local file paths into bytes */
+  readLocalFileBytes?: (path: string) => Promise<Uint8Array>;
 }
 
 /**
@@ -94,10 +93,12 @@ export async function loadVRMAFromPathOrUrl(
     pathOrUrl.startsWith("/assets/") ||
     pathOrUrl.startsWith("./assets/");
 
-  if (isTauri() && !isWebOrAsset) {
+  if (!isWebOrAsset && options.readLocalFileBytes) {
     try {
-      const bytes = await readFile(pathOrUrl);
-      const blob = new Blob([bytes], { type: "application/octet-stream" });
+      const bytes = await options.readLocalFileBytes(pathOrUrl);
+      const bufferCopy = new Uint8Array(bytes.byteLength);
+      bufferCopy.set(bytes);
+      const blob = new Blob([bufferCopy], { type: "application/octet-stream" });
       const blobUrl = URL.createObjectURL(blob);
       try {
         const vrmAnimation = await loadVRMA(blobUrl, options);
@@ -107,7 +108,7 @@ export async function loadVRMAFromPathOrUrl(
       }
     } catch (fsError) {
       console.warn(
-        `[deskumi] Failed to read VRMA ${pathOrUrl} via Tauri fs, falling back to direct load:`,
+        `[deskumi] Failed to read VRMA ${pathOrUrl} via local file reader, falling back to direct load:`,
         fsError
       );
     }
@@ -115,32 +116,6 @@ export async function loadVRMAFromPathOrUrl(
 
   const vrmAnimation = await loadVRMA(pathOrUrl, options);
   return { vrmAnimation };
-}
-
-/**
- * Opens native file dialog for selecting a `.vrma` animation file.
- */
-export async function pickVRMAFile(): Promise<string | null> {
-  if (!isTauri()) {
-    console.warn("[deskumi] pickVRMAFile is only available in Tauri runtime");
-    return null;
-  }
-
-  const selected = await open({
-    multiple: false,
-    directory: false,
-    filters: [
-      {
-        name: "VRM Animation",
-        extensions: ["vrma"]
-      }
-    ]
-  });
-
-  if (typeof selected === "string") {
-    return selected;
-  }
-  return null;
 }
 
 /**
@@ -279,9 +254,9 @@ export class VRMAPlayer {
    */
   public async loadAndPlay(
     pathOrUrl: string,
-    options: VRMAPlayOptions = {}
+    options: VRMAPlayOptions & VRMALoadOptions = {}
   ): Promise<THREE.AnimationAction> {
-    const { vrmAnimation } = await loadVRMAFromPathOrUrl(pathOrUrl);
+    const { vrmAnimation } = await loadVRMAFromPathOrUrl(pathOrUrl, options);
     return this.play(vrmAnimation, options);
   }
 

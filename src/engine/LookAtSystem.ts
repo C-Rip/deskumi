@@ -257,6 +257,7 @@ export class LookAtSystem implements System {
 
   private isDisposed = false;
   private isMouseOutside = false;
+  private ignoreMouseLeave = false;
   private timeSinceLastMove = 0;
   private hasReceivedInput = false;
 
@@ -339,7 +340,9 @@ export class LookAtSystem implements System {
     };
 
     this.onMouseLeaveListener = () => {
-      this.isMouseOutside = true;
+      if (!this.ignoreMouseLeave) {
+        this.isMouseOutside = true;
+      }
     };
 
     this.onMouseEnterListener = () => {
@@ -410,6 +413,18 @@ export class LookAtSystem implements System {
     this.isMouseOutside = false;
     this.hasReceivedInput = true;
     this.timeSinceLastMove = 0;
+  }
+
+  /**
+   * Controls whether DOM `mouseleave` events mark the pointer as outside.
+   * Enabled when `GlobalCursorLookAtSystem` supplies global coordinates across
+   * click-through transparent areas.
+   */
+  public setIgnoreMouseLeave(ignore: boolean): void {
+    this.ignoreMouseLeave = ignore;
+    if (ignore) {
+      this.isMouseOutside = false;
+    }
   }
 
   /**

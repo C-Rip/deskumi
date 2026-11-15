@@ -1,6 +1,7 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { setWindowDesktopPosition } from "./ipc";
 
 /**
  * Persisted application configuration schema.
@@ -30,6 +31,8 @@ export interface AppConfig {
   avatarOffsetY?: number;
   /** Developer mode / debugging overlay visible on desktop window (default false) */
   debugOverlay?: boolean;
+  /** Automatically perch avatar atop the active window's titlebar (default false) */
+  windowInteraction?: boolean;
 }
 
 /**
@@ -47,7 +50,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   frameHeight: 600,
   avatarOffsetX: 0,
   avatarOffsetY: 0,
-  debugOverlay: false
+  debugOverlay: false,
+  windowInteraction: false
 };
 
 export const SETTINGS_FILE = "settings.json";
@@ -176,10 +180,10 @@ export async function restoreWindowPosition(
   if (config.windowX !== null && config.windowY !== null) {
     try {
       // First try native GTK move (bypasses Mutter auto-centering/elevation)
-      await invoke("set_window_desktop_position", {
-        x: Math.round(config.windowX),
-        y: Math.round(config.windowY)
-      });
+      await setWindowDesktopPosition(
+        Math.round(config.windowX),
+        Math.round(config.windowY)
+      );
       console.log(
         `[deskumi] Restored window position via native GTK to (${config.windowX}, ${config.windowY})`
       );

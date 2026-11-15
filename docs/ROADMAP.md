@@ -96,7 +96,8 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 - Personajes 2D: sprites animados (PixiJS o Three.js planos). Live2D requiere revisar licencia del SDK → ADR.
 - Varios personajes a la vez / múltiples monitores.
 - Overlays para streamers (modo ventana capturable por OBS con fondo chroma).
-- Interacción con ventanas (sentarse sobre la barra de título) — solo X11/Windows.
+- Interacción con ventanas (sentarse sobre la barra de título) — X11/Windows y puente por compositor en Wayland (KWin, extensión GNOME Shell, wlroots).
+- Animaciones direccionales al mover/arrastrar el avatar (izquierda, derecha, arriba y diagonales arriba-izquierda / arriba-derecha).
 - Sistema de "comportamientos" scriptables / plugins.
 - Lip-sync con micrófono, tracking facial con webcam (MediaPipe).
 - Flatpak / Flathub.

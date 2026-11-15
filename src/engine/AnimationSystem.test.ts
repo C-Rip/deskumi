@@ -420,4 +420,45 @@ describe("AnimationSystem procedural motion and integration", () => {
       Math.sin(0.1 * system.breathingSpeed) * system.breathingAmplitude
     );
   });
+
+  it("transitions into procedural sitting pose when setSitting(true) is called", () => {
+    const leftUpperLeg = new THREE.Object3D();
+    const rightUpperLeg = new THREE.Object3D();
+    const leftLowerLeg = new THREE.Object3D();
+    const rightLowerLeg = new THREE.Object3D();
+    const hipsNode = new THREE.Object3D();
+    const boneMap: Record<string, THREE.Object3D> = {
+      hips: hipsNode,
+      leftUpperLeg,
+      rightUpperLeg,
+      leftLowerLeg,
+      rightLowerLeg
+    };
+    const mockVRM = {
+      scene: new THREE.Group(),
+      humanoid: {
+        getNormalizedBoneNode: (name: string) => boneMap[name] ?? null
+      },
+      update: vi.fn()
+    } as unknown as VRM;
+
+    const system = new AnimationSystem(mockVRM);
+    system.setSitting(true);
+    for (let i = 0; i < 20; i++) {
+      system.update(0.05);
+    }
+
+    expect(leftUpperLeg.rotation.x).toBeLessThan(-1.0);
+    expect(rightUpperLeg.rotation.x).toBeLessThan(-1.0);
+    expect(leftLowerLeg.rotation.x).toBeGreaterThan(1.0);
+    expect(rightLowerLeg.rotation.x).toBeGreaterThan(1.0);
+    expect(hipsNode.position.y).toBeLessThan(-0.12);
+
+    system.setSitting(false);
+    for (let i = 0; i < 30; i++) {
+      system.update(0.05);
+    }
+    expect(leftUpperLeg.rotation.x).toBeCloseTo(0, 1);
+    expect(hipsNode.position.y).toBeCloseTo(0, 1);
+  });
 });

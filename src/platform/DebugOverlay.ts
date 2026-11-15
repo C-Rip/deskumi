@@ -186,10 +186,9 @@ export class DebugOverlay {
       const pitchDeg = ((this.currentLookAt.lastPitch * 180) / Math.PI).toFixed(
         1
       );
-      const quadX = this.cursorX > w / 2 ? "DERECHA" : "IZQUIERDA";
-      const quadY = this.cursorY > h / 2 ? "ABAJO" : "ARRIBA";
+      const quadShort = `${this.cursorX > w / 2 ? "D" : "I"}-${this.cursorY > h / 2 ? "B" : "A"}`;
       const hitboxesCount = this.currentRects ? this.currentRects.length : 0;
-      this.badgeInfo.textContent = `${w}×${h} | ${quadX}-${quadY} | Yaw: ${yawDeg}° | Pitch: ${pitchDeg}° | Hitboxes: ${hitboxesCount}`;
+      this.badgeInfo.textContent = `${w}×${h} · ${quadShort} · Y:${yawDeg}° P:${pitchDeg}° · HB:${hitboxesCount}`;
     }
   }
 

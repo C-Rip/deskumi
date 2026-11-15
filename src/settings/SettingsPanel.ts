@@ -1,4 +1,3 @@
-import { emit } from "@tauri-apps/api/event";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -7,15 +6,9 @@ import {
   defaultConfigManager,
   DEFAULT_CONFIG
 } from "../platform/store";
-import { pickVRMFile, loadAvatarModel } from "../platform/avatar-picker";
-import * as THREE from "three";
-import {
-  centerAndGroundVRM,
-  calculatePerspectiveFraming
-} from "../engine/AvatarLoader";
-import type { VRM } from "@pixiv/three-vrm";
-import { LookAtSystem } from "../engine/LookAtSystem";
-import sampleAvatarUrl from "../../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
+import { pickVRMFile } from "../platform/avatar-picker";
+import { emitTauriEvent } from "../platform/ipc";
+import { PreviewStage } from "./PreviewStage";
 
 export type SettingsEmitPayload = AppConfig | boolean | unknown;
 
@@ -70,13 +63,7 @@ export class SettingsPanel {
   private showGuides = true;
 
   // Real 3D Preview Engine
-  private previewScene: THREE.Scene | null = null;
-  private previewCamera: THREE.PerspectiveCamera | null = null;
-  private previewRenderer: THREE.WebGLRenderer | null = null;
-  private previewVRM: VRM | null = null;
-  private previewLookAt: LookAtSystem | null = null;
-  private previewBlobUrl?: string;
-  private previewRafId: number | null = null;
+  private readonly previewStage = new PreviewStage();
   private isPoseTesting = false;
 
   // Preview Pan / Drag state (locked vertically)
@@ -91,15 +78,13 @@ export class SettingsPanel {
     this.onEmit =
       options.onEmit ??
       (async (event: string, payload?: unknown) => {
-        if (isTauri()) {
-          try {
-            await emit(event, payload);
-          } catch (err) {
-            console.warn(
-              `[deskumi-settings] Failed to emit ${event} event:`,
-              err
-            );
-          }
+        try {
+          await emitTauriEvent(event, payload);
+        } catch (err) {
+          console.warn(
+            `[deskumi-settings] Failed to emit ${event} event:`,
+            err
+          );
         }
       });
     this.pickFile = options.pickFile ?? pickVRMFile;
@@ -241,7 +226,24 @@ export class SettingsPanel {
             </div>
           </section>
 
-          <!-- 5. Developer Mode / Herramientas de Desarrollador -->
+          <!-- 5. Window Interaction / Posarse sobre ventanas -->
+          <section class="settings-card" data-section="window-interaction">
+            <div class="card-header-row">
+              <div class="card-title-group">
+                <span class="card-title-icon">🪟</span>
+                <h2 class="settings-card-title">Interacción con Ventanas</h2>
+              </div>
+              <span class="badge-tag">Experimental</span>
+            </div>
+            <p class="settings-card-description">Posiciona automáticamente al avatar sobre la barra de título de la ventana activa (Wayland KWin / X11).</p>
+            <div style="margin-top: 8px;">
+              <button type="button" class="btn-secondary" id="btn-toggle-window-interaction" style="width: 100%; justify-content: center; font-size: 12px; padding: 8px; ${this.config.windowInteraction ? "color: #10b981; border-color: #10b981;" : ""}">
+                ${this.config.windowInteraction ? "✓ Posarse sobre ventana ACTIVO" : "Activar Posado en Ventanas"}
+              </button>
+            </div>
+          </section>
+
+          <!-- 6. Developer Mode / Herramientas de Desarrollador -->
           <section class="settings-card" data-section="dev-tools">
             <div class="card-header-row">
               <div class="card-title-group">
@@ -275,8 +277,12 @@ export class SettingsPanel {
             </div>
           </div>
 
-          <div class="preview-stage-container" id="preview-stage">
+          <div class="preview-status-strip">
             <span class="fps-counter-badge">FPS Render: ${(this.config.fpsCap ?? 30).toFixed(1)}</span>
+            <span class="preview-dim-badge" id="preview-dim-text">${fWidth} × ${fHeight} px</span>
+          </div>
+
+          <div class="preview-stage-container" id="preview-stage">
             <div class="preview-overlay-guide" id="preview-guide">
               <canvas class="preview-stage-canvas" id="preview-canvas"></canvas>
               <div class="quadrant-line-v" id="guide-line-v"></div>
@@ -288,8 +294,6 @@ export class SettingsPanel {
                 <circle id="sight-reticle-circle" cx="0" cy="0" r="5" fill="#38bdf8" opacity="0.9" />
                 <circle id="sight-reticle-ring" cx="0" cy="0" r="9" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.6" />
               </svg>
-              <span class="guide-pill-top" id="preview-dim-text">${fWidth} × ${fHeight} px</span>
-              <span class="guide-pill-bottom">Área de render</span>
             </div>
           </div>
         </div>
@@ -323,7 +327,12 @@ export class SettingsPanel {
     this.updateFpsUI();
     this.updateFrameUI();
     this.updatePreviewGuide();
-    void this.init3DPreview();
+    void this.previewStage.init(
+      this.previewCanvas,
+      this.previewGuide,
+      this.previewGuideDimText,
+      this.getPreviewStageConfig()
+    );
   }
 
   private bindElements(): void {
@@ -446,7 +455,7 @@ export class SettingsPanel {
       poseTestBtn.addEventListener("click", () => {
         this.isPoseTesting = !this.isPoseTesting;
         poseTestBtn.classList.toggle("active", this.isPoseTesting);
-        this.applyPoseTest(this.isPoseTesting);
+        this.previewStage.applyPoseTest(this.isPoseTesting);
         this.showToast(
           this.isPoseTesting
             ? "Pose Test (Brazos extendidos)"
@@ -473,6 +482,29 @@ export class SettingsPanel {
           nextState
             ? "Debug Overlay activado en ventana"
             : "Debug Overlay desactivado"
+        );
+      });
+    }
+
+    const windowInteractionBtn =
+      this.container.querySelector<HTMLButtonElement>(
+        "#btn-toggle-window-interaction"
+      );
+    if (windowInteractionBtn) {
+      windowInteractionBtn.addEventListener("click", async () => {
+        const nextState = !this.config.windowInteraction;
+        this.config.windowInteraction = nextState;
+        windowInteractionBtn.textContent = nextState
+          ? "✓ Posarse sobre ventana ACTIVO"
+          : "Activar Posado en Ventanas";
+        windowInteractionBtn.style.color = nextState ? "#10b981" : "";
+        windowInteractionBtn.style.borderColor = nextState ? "#10b981" : "";
+        await this.configManager.set("windowInteraction", nextState);
+        await this.emitUpdate();
+        this.showToast(
+          nextState
+            ? "Interacción con ventanas activada"
+            : "Interacción con ventanas desactivada"
         );
       });
     }
@@ -526,10 +558,7 @@ export class SettingsPanel {
         this.config.avatarOffsetX = 0;
         this.config.avatarOffsetY = newOffsetY;
 
-        if (this.previewVRM) {
-          this.previewVRM.scene.position.x = 0;
-          this.previewVRM.scene.position.y = newOffsetY;
-        }
+        this.previewStage.setOffsetY(newOffsetY);
 
         void this.emitUpdate();
 
@@ -562,10 +591,10 @@ export class SettingsPanel {
         const mouseCanvasY = e.clientY - rect.top;
 
         // Drive real 3D LookAt tracking in preview model
-        if (this.previewLookAt && rect.width > 0 && rect.height > 0) {
+        if (rect.width > 0 && rect.height > 0) {
           const ndcX = (mouseCanvasX / rect.width) * 2 - 1;
           const ndcY = -(mouseCanvasY / rect.height) * 2 + 1;
-          this.previewLookAt.setCursorNdc(ndcX, ndcY);
+          this.previewStage.setCursorNdc(ndcX, ndcY);
         }
 
         // Update Sight SVG Laser & Reticle
@@ -580,41 +609,22 @@ export class SettingsPanel {
         }
 
         // Project avatar eyes / head to 2D canvas coordinates
-        if (
-          this.sightLineEl &&
-          this.previewVRM &&
-          this.previewCamera &&
-          rect.width > 0 &&
-          rect.height > 0
-        ) {
-          const headPos = new THREE.Vector3();
-          const headBone =
-            this.previewVRM.humanoid?.getNormalizedBoneNode("head");
-          if (headBone) {
-            headBone.getWorldPosition(headPos);
-          } else {
-            headPos.copy(this.previewVRM.scene.position).add({
-              x: 0,
-              y: 1.3,
-              z: 0
-            } as THREE.Vector3);
+        if (this.sightLineEl) {
+          const headCanvas = this.previewStage.projectHeadToCanvas(
+            rect.width,
+            rect.height
+          );
+          if (headCanvas) {
+            this.sightLineEl.setAttribute("x1", String(headCanvas.x));
+            this.sightLineEl.setAttribute("y1", String(headCanvas.y));
+            this.sightLineEl.setAttribute("x2", String(mouseCanvasX));
+            this.sightLineEl.setAttribute("y2", String(mouseCanvasY));
           }
-
-          const headNdc = headPos.project(this.previewCamera);
-          const eyeScreenX = ((headNdc.x + 1) / 2) * rect.width;
-          const eyeScreenY = ((-headNdc.y + 1) / 2) * rect.height;
-
-          this.sightLineEl.setAttribute("x1", String(eyeScreenX));
-          this.sightLineEl.setAttribute("y1", String(eyeScreenY));
-          this.sightLineEl.setAttribute("x2", String(mouseCanvasX));
-          this.sightLineEl.setAttribute("y2", String(mouseCanvasY));
         }
       });
 
       this.previewCanvas.addEventListener("mouseleave", () => {
-        if (this.previewLookAt) {
-          this.previewLookAt.setMouseOutside(true);
-        }
+        this.previewStage.setMouseOutside(true);
         if (this.sightSvgEl) {
           this.sightSvgEl.style.display = "none";
         }
@@ -629,7 +639,7 @@ export class SettingsPanel {
       this.config.avatarPath = selected;
       await this.configManager.set("avatarPath", selected);
       this.updateAvatarUI();
-      await this.loadPreviewModel();
+      await this.previewStage.loadModel(this.getPreviewStageConfig());
       await this.emitUpdate();
       this.showToast("Avatar actualizado");
     } catch (err) {
@@ -642,7 +652,7 @@ export class SettingsPanel {
       this.config.avatarPath = null;
       await this.configManager.set("avatarPath", null);
       this.updateAvatarUI();
-      await this.loadPreviewModel();
+      await this.previewStage.loadModel(this.getPreviewStageConfig());
       await this.emitUpdate();
       this.showToast("Avatar quitado (usando muestra)");
     } catch (err) {
@@ -656,9 +666,7 @@ export class SettingsPanel {
     if (this.scaleValueEl) {
       this.scaleValueEl.textContent = `${clamped.toFixed(2)}x`;
     }
-    if (this.previewVRM) {
-      this.previewVRM.scene.scale.setScalar(clamped);
-    }
+    this.previewStage.setScale(clamped);
 
     void this.emitUpdate();
 
@@ -761,18 +769,7 @@ export class SettingsPanel {
   }
 
   public dispose(): void {
-    if (this.previewRafId !== null) {
-      cancelAnimationFrame(this.previewRafId);
-      this.previewRafId = null;
-    }
-    if (this.previewBlobUrl) {
-      URL.revokeObjectURL(this.previewBlobUrl);
-      this.previewBlobUrl = undefined;
-    }
-    if (this.previewRenderer) {
-      this.previewRenderer.dispose();
-      this.previewRenderer = null;
-    }
+    this.previewStage.dispose();
   }
 
   private async closeWindow(): Promise<void> {
@@ -817,9 +814,7 @@ export class SettingsPanel {
     if (this.scaleValueEl) {
       this.scaleValueEl.textContent = `${scale.toFixed(2)}x`;
     }
-    if (this.previewVRM) {
-      this.previewVRM.scene.scale.setScalar(scale);
-    }
+    this.previewStage.setScale(scale);
   }
 
   private updateFrameUI(): void {
@@ -853,211 +848,22 @@ export class SettingsPanel {
     });
   }
 
-  private updatePreviewGuide(): void {
-    if (!this.previewGuide) return;
-    const w = this.config.frameWidth ?? 400;
-    const h = this.config.frameHeight ?? 600;
-
-    // Scale proportional to preview stage box (~380x420)
-    const factor = Math.min(320 / 600, 380 / 800);
-    const guideW = Math.round(w * factor);
-    const guideH = Math.round(h * factor);
-
-    this.previewGuide.style.width = `${guideW}px`;
-    this.previewGuide.style.height = `${guideH}px`;
-
-    if (this.previewGuideDimText) {
-      this.previewGuideDimText.textContent = `${w} × ${h} px`;
-    }
-
-    if (this.previewRenderer && this.previewCamera && this.previewCanvas) {
-      this.previewCamera.aspect = guideW / (guideH || 1);
-
-      // Keep avatar visual scale invariant across frame resize
-      const baseFov = 45;
-      const baseHalfFovRad = ((baseFov / 2) * Math.PI) / 180;
-      const visibleHalfHeightWorld = Math.tan(baseHalfFovRad);
-      const adaptedHalfFovRad = Math.atan(visibleHalfHeightWorld * (h / 600));
-      this.previewCamera.fov = (adaptedHalfFovRad * 2 * 180) / Math.PI;
-
-      this.previewCamera.updateProjectionMatrix();
-      this.previewRenderer.setSize(guideW, guideH);
-    }
-  }
-
-  private async init3DPreview(): Promise<void> {
-    if (!this.previewCanvas || !this.previewGuide) return;
-
-    const width = this.previewGuide.clientWidth || 213;
-    const height = this.previewGuide.clientHeight || 320;
-
-    // Initialize Three.js scene for preview matching main window camera (fov 45)
-    this.previewScene = new THREE.Scene();
-    this.previewCamera = new THREE.PerspectiveCamera(
-      45,
-      width / height,
-      0.1,
-      100
-    );
-    this.previewCamera.position.set(0, 1.0, 4.0);
-
-    this.previewRenderer = new THREE.WebGLRenderer({
-      canvas: this.previewCanvas,
-      alpha: true,
-      antialias: true
-    });
-    this.previewRenderer.setClearColor(0x000000, 0);
-    this.previewRenderer.setPixelRatio(
-      Math.min(window.devicePixelRatio || 1, 2)
-    );
-    this.previewRenderer.setSize(width, height);
-
-    // Lights
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-    hemiLight.position.set(0, 20, 0);
-    this.previewScene.add(hemiLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(1, 1, 1).normalize();
-    this.previewScene.add(dirLight);
-
-    // Load actual avatar into preview scene
-    await this.loadPreviewModel();
-
-    // Synchronize preview camera FOV and aspect with active frame dimensions
-    this.updatePreviewGuide();
-
-    // Start render loop
-    const renderLoop = () => {
-      if (this.previewRenderer && this.previewScene && this.previewCamera) {
-        if (this.previewLookAt) {
-          this.previewLookAt.update(0.016);
-        }
-        if (this.previewVRM) {
-          this.previewVRM.update(0.016);
-        }
-        this.previewRenderer.render(this.previewScene, this.previewCamera);
-      }
-      this.previewRafId = requestAnimationFrame(renderLoop);
+  private getPreviewStageConfig() {
+    return {
+      avatarPath: this.config.avatarPath ?? null,
+      avatarScale: this.config.avatarScale ?? 1.0,
+      avatarOffsetY: this.config.avatarOffsetY ?? 0,
+      frameWidth: this.config.frameWidth ?? 400,
+      frameHeight: this.config.frameHeight ?? 600,
+      isPoseTesting: this.isPoseTesting
     };
-    renderLoop();
   }
 
-  private async loadPreviewModel(): Promise<void> {
-    if (!this.previewScene || !this.previewCamera) return;
-
-    // Clean previous preview avatar
-    if (this.previewLookAt) {
-      this.previewLookAt.dispose();
-      this.previewLookAt = null;
-    }
-    if (this.previewVRM) {
-      this.previewScene.remove(this.previewVRM.scene);
-      this.previewVRM = null;
-    }
-    if (this.previewBlobUrl) {
-      URL.revokeObjectURL(this.previewBlobUrl);
-      this.previewBlobUrl = undefined;
-    }
-
-    const modelSource = this.config.avatarPath || sampleAvatarUrl;
-    try {
-      const { vrm, blobUrl } = await loadAvatarModel(modelSource);
-      this.previewVRM = vrm;
-      this.previewBlobUrl = blobUrl;
-      this.previewScene.add(vrm.scene);
-
-      const bounds = centerAndGroundVRM(vrm);
-      const framing = calculatePerspectiveFraming(bounds, 45, 1.15);
-      this.previewCamera.position.copy(framing.cameraPosition);
-      this.previewCamera.lookAt(framing.target);
-
-      // Create interactive LookAtSystem for preview stage
-      this.previewLookAt = new LookAtSystem(vrm, {
-        camera: this.previewCamera,
-        targetElement: this.previewCanvas ?? undefined,
-        autoAttachListeners: false,
-        damping: 10.0,
-        maxYaw: (30 * Math.PI) / 180,
-        maxPitch: (25 * Math.PI) / 180,
-        enableHeadRotation: true
-      });
-
-      const scale = this.config.avatarScale ?? 1.0;
-      vrm.scene.scale.setScalar(scale);
-      // Keep avatar centered horizontally (X = 0)
-      vrm.scene.position.x = 0;
-      if (typeof this.config.avatarOffsetY === "number") {
-        vrm.scene.position.y = this.config.avatarOffsetY;
-      }
-      this.applyPoseTest(this.isPoseTesting);
-    } catch (err) {
-      console.warn(
-        "[deskumi-settings] Failed to load 3D model in preview, drawing fallback:",
-        err
-      );
-      this.initPreviewCanvasFallback();
-    }
-  }
-
-  private applyPoseTest(isTesting: boolean): void {
-    if (!this.previewVRM?.humanoid) return;
-    const leftArm =
-      this.previewVRM.humanoid.getNormalizedBoneNode("leftUpperArm");
-    const rightArm =
-      this.previewVRM.humanoid.getNormalizedBoneNode("rightUpperArm");
-    if (leftArm && rightArm) {
-      if (isTesting) {
-        // T-Pose / extended arms test
-        leftArm.rotation.z = 0;
-        rightArm.rotation.z = 0;
-      } else {
-        // Relaxed natural A-pose
-        leftArm.rotation.z = -1.2;
-        rightArm.rotation.z = 1.2;
-      }
-    }
-  }
-
-  private initPreviewCanvasFallback(): void {
-    if (!this.previewCanvas) return;
-    const ctx = this.previewCanvas.getContext("2d");
-    if (!ctx) return;
-
-    const w = (this.previewCanvas.width = this.previewCanvas.clientWidth);
-    const h = (this.previewCanvas.height = this.previewCanvas.clientHeight);
-
-    ctx.clearRect(0, 0, w, h);
-    const centerX = w / 2;
-    const centerY = h / 2 + 10;
-    const scale = (this.config.avatarScale ?? 1.0) * 0.9;
-
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(scale, scale);
-
-    // Shadow
-    ctx.beginPath();
-    ctx.ellipse(0, 85, 35, 8, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
-    ctx.fill();
-
-    // Hair pigtails
-    ctx.fillStyle = "#14b8a6";
-    ctx.beginPath();
-    ctx.ellipse(-38, -10, 16, 50, -0.2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(38, -10, 16, 50, 0.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Head
-    ctx.beginPath();
-    ctx.arc(0, -35, 24, 0, Math.PI * 2);
-    ctx.fillStyle = "#fef08a";
-    ctx.fill();
-
-    ctx.restore();
+  private updatePreviewGuide(): void {
+    this.previewStage.updateGuide(
+      this.config.frameWidth ?? 400,
+      this.config.frameHeight ?? 600
+    );
   }
 
   private async emitUpdate(): Promise<void> {
