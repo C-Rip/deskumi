@@ -1,3 +1,4 @@
+pub mod cursor_bridge;
 pub mod error;
 pub mod input_region;
 pub mod platform;
@@ -6,7 +7,7 @@ pub mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -17,14 +18,24 @@ pub fn run() {
         ))
         .setup(|app| {
             tray::create_tray(app.handle())?;
+            cursor_bridge::init();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             platform::get_platform_caps,
             platform::set_window_desktop_position,
+            platform::set_window_desktop_size,
+            platform::get_window_cursor_position,
+            platform::get_active_window_rect,
             input_region::set_input_region,
             settings_window::open_settings_window
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application");
+
+    app.run(|_app_handle, event| {
+        if let tauri::RunEvent::Exit = event {
+            cursor_bridge::shutdown();
+        }
+    });
 }

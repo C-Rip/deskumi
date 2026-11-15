@@ -74,5 +74,5 @@ npm run tauri dev
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE). Los avatares de ejemplo tienen su propia licencia
+GPL-3.0 — ver [LICENSE](LICENSE). Los avatares de ejemplo tienen su propia licencia
 (ver [assets/CREDITS.md](assets/CREDITS.md)).

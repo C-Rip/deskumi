@@ -4,6 +4,7 @@ import {
   areRectsEqual,
   calculateScreenBoundingBox,
   InputRegionManager,
+  isPointInRects,
   normalizeRects,
   AvatarInputRegionSystem,
   type Rect
@@ -318,6 +319,49 @@ describe("input-region", () => {
 
       system.dispose();
       expect(resetSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("stores silhouette hit rects while keeping full window pointer active when fullWindowPointer is true", () => {
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshBasicMaterial()
+      );
+      const camera = new THREE.PerspectiveCamera(45, 800 / 600, 0.1, 100);
+      camera.position.set(0, 0, 5);
+      camera.lookAt(0, 0, 0);
+
+      const manager = new InputRegionManager({
+        hz: 15,
+        sender: vi.fn().mockResolvedValue(undefined)
+      });
+      const setRegionSpy = vi.spyOn(manager, "setRegion");
+      const resetSpy = vi.spyOn(manager, "reset");
+
+      const system = new AvatarInputRegionSystem(mesh, camera, {
+        manager,
+        getViewportSize: () => ({ width: 800, height: 600 }),
+        padding: 10,
+        fullWindowPointer: true
+      });
+
+      system.update(0.033);
+      expect(setRegionSpy).not.toHaveBeenCalled();
+      expect(resetSpy).toHaveBeenCalled();
+      expect(system.getHitRects().length).toBe(1);
+      expect(system.isPointOnAvatar(400, 300)).toBe(true);
+      expect(system.isPointOnAvatar(10, 10)).toBe(false);
+    });
+  });
+
+  describe("isPointInRects", () => {
+    it("correctly tests points inside and outside rects", () => {
+      const rects: Rect[] = [{ x: 100, y: 100, w: 50, h: 80 }];
+      expect(isPointInRects(120, 140, rects)).toBe(true);
+      expect(isPointInRects(100, 100, rects)).toBe(true);
+      expect(isPointInRects(150, 180, rects)).toBe(false);
+      expect(isPointInRects(50, 50, rects)).toBe(false);
+      expect(isPointInRects(120, 140, null)).toBe(false);
+      expect(isPointInRects(120, 140, [])).toBe(false);
     });
   });
 });

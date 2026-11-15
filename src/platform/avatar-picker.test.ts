@@ -1,8 +1,22 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as THREE from "three";
 import type { VRM } from "@pixiv/three-vrm";
-import { setupAvatarInScene, teardownAvatarContext } from "./avatar-picker";
+import { isTauri } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  pickVRMAFile,
+  setupAvatarInScene,
+  teardownAvatarContext
+} from "./avatar-picker";
 import type { SceneManager } from "../engine/SceneManager";
+
+vi.mock("@tauri-apps/api/core", () => ({
+  isTauri: vi.fn(() => false)
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  open: vi.fn()
+}));
 
 function createMockVRM(): VRM {
   const scene = new THREE.Group();
@@ -79,5 +93,39 @@ describe("avatar-picker lifecycle", () => {
     expect(revokeSpy).toHaveBeenCalledWith("blob:fake-url");
 
     revokeSpy.mockRestore();
+  });
+});
+
+describe("pickVRMAFile", () => {
+  beforeEach(() => {
+    vi.mocked(isTauri).mockReset();
+    vi.mocked(open).mockReset();
+  });
+
+  it("returns null in non-Tauri browser environment", async () => {
+    vi.mocked(isTauri).mockReturnValue(false);
+    const result = await pickVRMAFile();
+    expect(result).toBeNull();
+  });
+
+  it("opens native file dialog filtered to .vrma in Tauri runtime", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(open).mockResolvedValue("/home/user/dance.vrma");
+
+    const result = await pickVRMAFile();
+    expect(result).toBe("/home/user/dance.vrma");
+    expect(open).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filters: [{ name: "VRM Animation", extensions: ["vrma"] }]
+      })
+    );
+  });
+
+  it("returns null when user cancels dialog", async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(open).mockResolvedValue(null);
+
+    const result = await pickVRMAFile();
+    expect(result).toBeNull();
   });
 });

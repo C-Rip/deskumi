@@ -1,6 +1,6 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { SceneManager } from "./SceneManager";
+
+export type UnlistenFn = () => void;
 
 export interface PowerSaveControllerOptions {
   /**
@@ -129,33 +129,23 @@ export class PowerSaveController {
         this.setWindowVisible(visible);
       });
       if (res instanceof Promise) {
-        void res.then((unlisten) => {
-          if (this._isDisposed) {
-            unlisten();
-          } else {
-            this.tauriUnlisten = unlisten;
-          }
-        });
+        void res
+          .then((unlisten) => {
+            if (this._isDisposed) {
+              unlisten();
+            } else {
+              this.tauriUnlisten = unlisten;
+            }
+          })
+          .catch((err: unknown) => {
+            console.warn(
+              "[PowerSaveController] Failed to subscribe to visibility listener:",
+              err
+            );
+          });
       } else if (typeof res === "function") {
         this.tauriUnlisten = res;
       }
-    } else if (isTauri()) {
-      void listen<boolean>("tray-visibility-changed", (event) => {
-        this.setWindowVisible(event.payload);
-      })
-        .then((unlisten) => {
-          if (this._isDisposed) {
-            unlisten();
-          } else {
-            this.tauriUnlisten = unlisten;
-          }
-        })
-        .catch((err: unknown) => {
-          console.warn(
-            "[PowerSaveController] Failed to listen to tray-visibility-changed:",
-            err
-          );
-        });
     }
 
     // Check initial document visibility state if available

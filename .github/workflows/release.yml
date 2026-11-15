@@ -55,7 +55,6 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf \
-            libfuse2 \
             rpm
 
       - name: Install frontend dependencies
@@ -89,8 +88,8 @@ jobs:
           if [ -d "$BUNDLE_DIR" ]; then
             cd "$BUNDLE_DIR"
             echo "Scanning for bundles in $BUNDLE_DIR..."
-            # Find all release bundles (.deb, .AppImage, .rpm, .msi, .exe)
-            FILES=$(find . -type f \( -name "*.deb" -o -name "*.AppImage" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" \) | grep -v "\.sha256$" | sort)
+            # Find all release bundles (.deb, .rpm, .exe)
+            FILES=$(find . -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.exe" \) | grep -v "\.sha256$" | sort)
             if [ -n "$FILES" ]; then
               for file in $FILES; do
                 filename=$(basename "$file")

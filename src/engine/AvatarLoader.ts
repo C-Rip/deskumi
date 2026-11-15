@@ -284,6 +284,18 @@ export function calculateOrthoFraming(
 }
 
 /**
+ * Computes the vertical scene position `y` that keeps an avatar centered around
+ * `framingCenterY` regardless of uniform `scale`, plus user `offsetY`.
+ */
+export function calcCenteredAvatarY(
+  framingCenterY: number,
+  scale: number,
+  offsetY = 0
+): number {
+  return framingCenterY * (1 - scale) + offsetY;
+}
+
+/**
  * Recursively disposes an Object3D hierarchy and frees textures, materials, and geometries.
  * Also removes the object from its parent if present.
  */

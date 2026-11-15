@@ -135,6 +135,147 @@ pub fn get_platform_caps() -> Result<PlatformCaps, AppError> {
 }
 
 #[tauri::command]
+pub fn get_window_cursor_position(
+    window: tauri::WebviewWindow,
+) -> Result<Option<(i32, i32)>, AppError> {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::Cast;
+        use gtk::prelude::*;
+        use std::sync::mpsc::channel;
+        use tauri::Manager;
+
+        let app = window.app_handle().clone();
+        let (tx, rx) = channel();
+
+        app.run_on_main_thread(move || {
+            let res = (|| -> Option<(i32, i32)> {
+                let display = gtk::gdk::Display::default()?;
+                let seat = display.default_seat()?;
+                let pointer = seat.pointer()?;
+                let (_screen, px, py) = pointer.position();
+
+                for widget in gtk::Window::list_toplevels() {
+                    if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                        let title = win.title().map(|t| t.to_string()).unwrap_or_default();
+                        if title == "Deskumi" {
+                            if let Some(gdk_win) = win.window() {
+                                if let Some(bridged) = crate::cursor_bridge::latest_pixel_cursor(
+                                    gdk_win.width(),
+                                    gdk_win.height(),
+                                ) {
+                                    return Some(bridged);
+                                }
+                                let (_, ox, oy) = gdk_win.origin();
+                                return Some((px - ox, py - oy));
+                            }
+                        }
+                    }
+                }
+                None
+            })();
+            let _ = tx.send(res);
+        })
+        .map_err(|e| AppError::Platform(format!("Failed to query pointer on main thread: {e}")))?;
+
+        let pos = rx
+            .recv()
+            .map_err(|e| AppError::Platform(format!("Failed to receive pointer result: {e}")))?;
+        Ok(pos)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn get_active_window_rect(
+    window: tauri::WebviewWindow,
+) -> Result<Option<(i32, i32, i32, i32)>, AppError> {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::Cast;
+        use gtk::prelude::*;
+        use std::sync::mpsc::channel;
+        use tauri::Manager;
+
+        let app = window.app_handle().clone();
+        let (tx, rx) = channel();
+
+        app.run_on_main_thread(move || {
+            let res = (|| -> Option<(i32, i32, i32, i32)> {
+                for widget in gtk::Window::list_toplevels() {
+                    if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                        let title = win.title().map(|t| t.to_string()).unwrap_or_default();
+                        if title == "Deskumi" {
+                            if let Some(gdk_win) = win.window() {
+                                return crate::cursor_bridge::latest_active_window_rect(
+                                    gdk_win.width(),
+                                );
+                            }
+                        }
+                    }
+                }
+                None
+            })();
+            let _ = tx.send(res);
+        })
+        .map_err(|e| AppError::Platform(format!("Failed to query active window rect: {e}")))?;
+
+        let rect = rx
+            .recv()
+            .map_err(|e| AppError::Platform(format!("Failed to receive active window rect: {e}")))?;
+        Ok(rect)
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window;
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn set_window_desktop_size(
+    window: tauri::WebviewWindow,
+    width: i32,
+    height: i32,
+) -> Result<(), AppError> {
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::glib::Cast;
+        use gtk::traits::GtkWindowExt;
+        use gtk::traits::WidgetExt;
+        use tauri::Manager;
+        let app = window.app_handle().clone();
+        app.run_on_main_thread(move || {
+            for widget in gtk::Window::list_toplevels() {
+                if let Some(win) = widget.dynamic_cast_ref::<gtk::Window>() {
+                    let title = win.title().map(|t| t.to_string()).unwrap_or_default();
+                    if title == "Deskumi" {
+                        win.set_resizable(true);
+                        win.resize(width, height);
+                        win.set_size_request(width, height);
+                        win.set_resizable(false);
+                    }
+                }
+            }
+        })
+        .map_err(|e| AppError::Platform(format!("Failed to resize window on main thread: {e}")))?;
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (window, width, height);
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub fn set_window_desktop_position(
     window: tauri::WebviewWindow,
     x: i32,

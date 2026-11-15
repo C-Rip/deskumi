@@ -49,6 +49,13 @@ export class SceneManager {
   private isRunning = false;
   private isDisposed = false;
 
+  /** Reference height used to keep visual 3D scale invariant across window resizes (default: 600px) */
+  public referenceHeight = 600;
+  public readonly baseFov: number;
+  /** Logical frame size configured by settings; decouples FOV & cursor scale from HiDPI CSS pixel scaling */
+  private targetFrameWidth: number | null = null;
+  private targetFrameHeight: number | null = null;
+
   constructor(options: SceneManagerOptions = {}) {
     const width =
       options.width ??
@@ -59,15 +66,17 @@ export class SceneManager {
     const aspect = width / (height || 1);
 
     this.pauseOnHidden = options.pauseOnHidden ?? true;
+    this.referenceHeight = options.height ?? 600;
 
     // 1. Scene
     this.scene = new THREE.Scene();
 
     // 2. Camera
+    const fov = options.cameraFov ?? 45;
+    this.baseFov = fov;
     if (options.camera) {
       this.camera = options.camera;
     } else {
-      const fov = options.cameraFov ?? 45;
       const near = options.cameraNear ?? 0.1;
       const far = options.cameraFar ?? 100;
       this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
@@ -208,7 +217,24 @@ export class SceneManager {
 
   /**
    * Triggers a resize update for the camera and renderer.
+   * Keeps visual scale constant by adapting FOV relative to reference height (600px).
    */
+  /**
+   * Set the configured logical frame size used for FOV scaling and cursor coordinate
+   * mapping so HiDPI/fractional-scaled windows match PreviewStage exactly.
+   */
+  public setTargetFrameSize(width: number | null, height: number | null): void {
+    this.targetFrameWidth = width && width > 0 ? width : null;
+    this.targetFrameHeight = height && height > 0 ? height : null;
+  }
+
+  public getTargetFrameSize(): { width: number; height: number } | null {
+    if (this.targetFrameWidth && this.targetFrameHeight) {
+      return { width: this.targetFrameWidth, height: this.targetFrameHeight };
+    }
+    return null;
+  }
+
   public resize(width?: number, height?: number): void {
     const w =
       width ?? (typeof window !== "undefined" ? window.innerWidth : 800);
@@ -216,6 +242,19 @@ export class SceneManager {
       height ?? (typeof window !== "undefined" ? window.innerHeight : 600);
 
     this.camera.aspect = w / (h || 1);
+
+    // Keep world-space height visual size invariant:
+    // tan(fov / 2) * frameHeight = constant
+    const fovHeight = height ?? this.targetFrameHeight ?? h;
+    if (fovHeight > 0 && this.referenceHeight > 0) {
+      const baseHalfFovRad = ((this.baseFov / 2) * Math.PI) / 180;
+      const visibleHalfHeightWorld = Math.tan(baseHalfFovRad);
+      const adaptedHalfFovRad = Math.atan(
+        visibleHalfHeightWorld * (fovHeight / this.referenceHeight)
+      );
+      this.camera.fov = (adaptedHalfFovRad * 2 * 180) / Math.PI;
+    }
+
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
   }

@@ -11,9 +11,45 @@ import { AnimationSystem } from "../engine/AnimationSystem";
 import { LookAtSystem } from "../engine/LookAtSystem";
 import { ReactionSystem } from "../engine/ReactionSystem";
 import { AvatarInputRegionSystem } from "./input-region";
+import { GlobalCursorLookAtSystem } from "./global-cursor";
 import { defaultConfigManager } from "./store";
-import { pickVRMAFile } from "../engine/VRMAPlayer";
 import type { SceneManager } from "../engine/SceneManager";
+
+/**
+ * Reads a local file into bytes using Tauri's fs plugin when running in Tauri.
+ */
+export async function readPlatformFileBytes(path: string): Promise<Uint8Array> {
+  if (!isTauri()) {
+    throw new Error("Local file reading is only available in Tauri runtime");
+  }
+  return await readFile(path);
+}
+
+/**
+ * Opens native file dialog for selecting a `.vrma` animation file.
+ */
+export async function pickVRMAFile(): Promise<string | null> {
+  if (!isTauri()) {
+    console.warn("[deskumi] pickVRMAFile is only available in Tauri runtime");
+    return null;
+  }
+
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: [
+      {
+        name: "VRM Animation",
+        extensions: ["vrma"]
+      }
+    ]
+  });
+
+  if (typeof selected === "string") {
+    return selected;
+  }
+  return null;
+}
 
 export interface LoadedAvatarContext {
   vrm: VRM;
@@ -21,6 +57,8 @@ export interface LoadedAvatarContext {
   animationSystem: AnimationSystem;
   reactionSystem: ReactionSystem;
   inputRegionSystem: AvatarInputRegionSystem;
+  globalCursorSystem?: GlobalCursorLookAtSystem;
+  framingCenterY: number;
   blobUrl?: string;
 }
 
@@ -72,10 +110,10 @@ export function setupAvatarInScene(
   // Center horizontally and ground feet at y=0
   const bounds = centerAndGroundVRM(vrm);
 
-  // Framed snug perspective camera
+  // Framed snug perspective camera (always computed against standard baseFov = 45 deg)
   const framing = calculatePerspectiveFraming(
     bounds,
-    sceneManager.camera.fov,
+    sceneManager.baseFov ?? 45,
     1.15
   );
   sceneManager.camera.position.copy(framing.cameraPosition);
@@ -92,7 +130,7 @@ export function setupAvatarInScene(
   const animationSystem = new AnimationSystem(vrm);
   sceneManager.registerSystem(animationSystem);
 
-  // Register pixel-perfect silhouette hit testing
+  // Register pixel-perfect silhouette hit testing (click-through outside avatar silhouette)
   const inputRegionSystem = new AvatarInputRegionSystem(
     vrm,
     sceneManager.camera,
@@ -100,10 +138,22 @@ export function setupAvatarInScene(
       renderer: sceneManager.renderer,
       scene: sceneManager.scene,
       downscale: 4,
-      padding: 2
+      padding: 2,
+      fullWindowPointer: false,
+      getLogicalFrameSize: () => sceneManager.getTargetFrameSize()
     }
   );
   sceneManager.registerSystem(inputRegionSystem);
+
+  // Register global cursor LookAt bridge when running in Tauri (active if caps.globalCursor)
+  let globalCursorSystem: GlobalCursorLookAtSystem | undefined;
+  if (isTauri()) {
+    globalCursorSystem = new GlobalCursorLookAtSystem(lookAtSystem, {
+      hz: 15,
+      getLogicalFrameSize: () => sceneManager.getTargetFrameSize()
+    });
+    sceneManager.registerSystem(globalCursorSystem);
+  }
 
   // Register reaction system
   const reactionSystem = new ReactionSystem(vrm, {
@@ -118,6 +168,8 @@ export function setupAvatarInScene(
     animationSystem,
     reactionSystem,
     inputRegionSystem,
+    globalCursorSystem,
+    framingCenterY: framing.target.y,
     blobUrl
   };
 }
@@ -132,11 +184,15 @@ export function teardownAvatarContext(
   sceneManager.unregisterSystem(context.lookAtSystem);
   sceneManager.unregisterSystem(context.animationSystem);
   sceneManager.unregisterSystem(context.inputRegionSystem);
+  if (context.globalCursorSystem) {
+    sceneManager.unregisterSystem(context.globalCursorSystem);
+  }
   sceneManager.unregisterSystem(context.reactionSystem);
 
   context.lookAtSystem.dispose();
   context.animationSystem.dispose();
   context.inputRegionSystem.dispose();
+  context.globalCursorSystem?.dispose();
   context.reactionSystem.dispose();
 
   sceneManager.scene.remove(context.vrm.scene);
@@ -209,7 +265,8 @@ export async function pickAndSwitchAvatar(
       try {
         await newContext.animationSystem.vrmaPlayer.loadAndPlay(savedVrma, {
           loop: true,
-          fadeInDuration: 0.25
+          fadeInDuration: 0.25,
+          readLocalFileBytes: isTauri() ? readPlatformFileBytes : undefined
         });
       } catch (err) {
         console.warn(
@@ -260,7 +317,8 @@ export async function pickAndPlayVRMA(
     console.log(`[deskumi] Loading chosen VRMA animation: ${selectedPath}`);
     await context.animationSystem.vrmaPlayer.loadAndPlay(selectedPath, {
       loop: true,
-      fadeInDuration: 0.25
+      fadeInDuration: 0.25,
+      readLocalFileBytes: isTauri() ? readPlatformFileBytes : undefined
     });
     await defaultConfigManager.set("vrmaPath", selectedPath);
     console.log(`[deskumi] VRMA animation playing and saved: ${selectedPath}`);
@@ -279,5 +337,3 @@ export async function stopVRMA(context: LoadedAvatarContext): Promise<void> {
   await defaultConfigManager.delete("vrmaPath");
   console.log("[deskumi] Stopped VRMA animation and cleared from store");
 }
-
-export { pickVRMAFile };

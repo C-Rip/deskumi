@@ -71,16 +71,33 @@ src-tauri/
 
 ## Contrato IPC
 
-Toda comunicación pasa por `src/platform/ipc.ts`. Cambiar este contrato requiere
+Toda comunicación `invoke` / `listen` / `emit` pasa por `src/platform/ipc.ts`. Cambiar este contrato requiere
 actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 
-| Dirección        | Nombre                                           | Payload                                                                           | Respuesta      | Fase                  |
-| ---------------- | ------------------------------------------------ | --------------------------------------------------------------------------------- | -------------- | --------------------- |
-| JS→Rust          | `get_platform_caps`                              | —                                                                                 | `PlatformCaps` | F1                    |
-| JS→Rust          | `set_click_through`                              | `{ ignore: bool }`                                                                | `()`           | F1                    |
-| JS→Rust          | `set_input_region`                               | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`           | F3 (ADR-0002 / T-303) |
-| JS→Rust          | `start_cursor_tracking` / `stop_cursor_tracking` | `{ hz: number }`                                                                  | `()`           | F3                    |
-| Rust→JS (evento) | `cursor://moved`                                 | `{ x, y, inside: bool }` (px físicos, relativos a la ventana)                     | —              | F3                    |
+### Comandos (`invoke` JS→Rust)
+
+| Comando                       | Payload                                                                           | Respuesta                                  | Módulo Rust          |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
+| `get_platform_caps`           | —                                                                                 | `PlatformCaps`                             | `platform.rs`        |
+| `set_input_region`            | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`                                       | `input_region.rs`    |
+| `set_window_desktop_size`     | `{ width: number, height: number }` (px lógicos)                                  | `()`                                       | `platform.rs`        |
+| `set_window_desktop_position` | `{ x: number, y: number }` (px de escritorio)                                     | `()`                                       | `platform.rs`        |
+| `get_window_cursor_position`  | —                                                                                 | `[number, number] \| null`                 | `platform.rs`        |
+| `get_active_window_rect`      | —                                                                                 | `[number, number, number, number] \| null` | `platform.rs`        |
+| `open_settings_window`        | —                                                                                 | `()`                                       | `settings_window.rs` |
+
+### Eventos (Tauri `emit` / `listen`)
+
+| Dirección | Evento                       | Payload     | Origen / Uso                                           |
+| --------- | ---------------------------- | ----------- | ------------------------------------------------------ |
+| Rust→JS   | `tray-request-load-avatar`   | `()`        | Menú del tray: abrir selector `.vrm`                   |
+| Rust→JS   | `tray-request-clear-avatar`  | `()`        | Menú del tray: quitar avatar                           |
+| Rust→JS   | `tray-request-load-vrma`     | `()`        | Menú del tray: abrir selector `.vrma`                  |
+| Rust→JS   | `tray-request-stop-vrma`     | `()`        | Menú del tray: detener animación `.vrma`               |
+| Rust→JS   | `tray-autostart-changed`     | `boolean`   | Menú del tray: sincronizar autostart en store          |
+| Rust→JS   | `tray-visibility-changed`    | `boolean`   | Menú del tray: mostrar/ocultar (`PowerSaveController`) |
+| Rust→JS   | `settings-window-visibility` | `boolean`   | `settings_window.rs`: estado de ventana Ajustes        |
+| JS↔JS     | `settings-updated`           | `AppConfig` | `SettingsPanel` → `main.ts`: cambios en vivo           |
 
 ```ts
 type PlatformCaps = {
@@ -116,3 +133,6 @@ Ver [docs/adr/](adr/). Resumen:
 - [ADR-0001](adr/0001-tauri-v2-threejs-vrm.md) — Tauri v2 + Three.js + three-vrm.
 - [ADR-0002](adr/0002-click-through-strategy.md) — Estrategia de click-through (**aceptada** en T-103).
 - [ADR-0003](adr/0003-xwayland-default-on-linux.md) — XWayland por defecto en Linux (**propuesta**).
+- [ADR-0004](adr/0004-vanilla-ts-settings-window.md) — Ventana de ajustes en TypeScript vanilla (**aceptada**).
+- [ADR-0005](adr/0005-wayland-global-cursor-bridge.md) — Puente D-Bus multi-compositor (`org.deskumi.CursorBridge`) para cursor global en Wayland (**aceptada**).
+- [LIMITATIONS.md](LIMITATIONS.md) — Registro de limitaciones técnicas, workarounds activos y pendientes por resolver.

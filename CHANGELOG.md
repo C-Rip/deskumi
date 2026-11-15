@@ -6,6 +6,22 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-15
+
+### Added
+
+- **Wayland Global Cursor & Active Window Bridge (ADR-0005)**: Puente D-Bus `org.deskumi.CursorBridge` con script automático en KDE Plasma (KWin 6) para seguimiento global del cursor (`LookAtSystem`) y geometría de la ventana activa incluso sobre regiones click-through o ventanas nativas de Wayland.
+- **Interacción con ventanas y pose sentada**: Modo opcional para posar y sentar al avatar proceduralmente sobre la barra de título de la ventana activa (con piernas colgando, reducción dinámica de la caja al 72% de alto y retorno automático a posición parada al cerrar, minimizar o alcanzar el borde superior).
+- **Ventana de ajustes responsiva y vista previa dinámica**: Rediseño responsivo del panel de ajustes y área de vista previa (`PreviewStage`) adaptable al ancho/alto y escala del avatar sin recortar el modelo.
+
+### Changed
+
+- **Targets de empaquetado**: Se mantiene la generación de paquetes `.deb`, `.rpm` y `.exe` (NSIS) y se elimina el target `.AppImage` debido a problemas de refresco de frames duplicados en capas.
+
+### Fixed
+
+- **Silueta y click-through**: Ajustes en el cálculo de región de entrada (`input_region`) y posicionamiento de ventana para evitar bloqueos y mejorar la fluidez de seguimiento.
+
 ## [0.1.1] - 2026-11-12
 
 ### Fixed

@@ -1,6 +1,7 @@
-import { invoke, isTauri } from "@tauri-apps/api/core";
+import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { LazyStore } from "@tauri-apps/plugin-store";
+import { setWindowDesktopPosition } from "./ipc";
 
 /**
  * Persisted application configuration schema.
@@ -20,6 +21,18 @@ export interface AppConfig {
   autostart: boolean;
   /** Avatar visual scale multiplier (0.5x - 2.0x, default 1.0) */
   avatarScale: number;
+  /** Transparent window frame width in pixels (default 400) */
+  frameWidth: number;
+  /** Transparent window frame height in pixels (default 600) */
+  frameHeight: number;
+  /** Avatar horizontal offset in 3D world units (default 0) */
+  avatarOffsetX?: number;
+  /** Avatar vertical offset in 3D world units (default 0) */
+  avatarOffsetY?: number;
+  /** Developer mode / debugging overlay visible on desktop window (default false) */
+  debugOverlay?: boolean;
+  /** Automatically perch avatar atop the active window's titlebar (default false) */
+  windowInteraction?: boolean;
 }
 
 /**
@@ -32,7 +45,13 @@ export const DEFAULT_CONFIG: AppConfig = {
   avatarPath: null,
   vrmaPath: null,
   autostart: false,
-  avatarScale: 1.0
+  avatarScale: 1.0,
+  frameWidth: 400,
+  frameHeight: 600,
+  avatarOffsetX: 0,
+  avatarOffsetY: 0,
+  debugOverlay: false,
+  windowInteraction: false
 };
 
 export const SETTINGS_FILE = "settings.json";
@@ -121,6 +140,23 @@ export class ConfigManager {
   }
 
   /**
+   * Saves an entire AppConfig object to store.
+   */
+  async saveConfig(config: AppConfig): Promise<void> {
+    this.memoryConfig = { ...config };
+    if (!this.store) return;
+    try {
+      const keys = Object.keys(config) as Array<keyof AppConfig>;
+      for (const key of keys) {
+        await this.store.set(key, config[key]);
+      }
+      await this.store.save();
+    } catch (err: unknown) {
+      console.warn("[deskumi] Failed to save full config to store:", err);
+    }
+  }
+
+  /**
    * Returns current cached configuration.
    */
   get(): AppConfig {
@@ -144,10 +180,10 @@ export async function restoreWindowPosition(
   if (config.windowX !== null && config.windowY !== null) {
     try {
       // First try native GTK move (bypasses Mutter auto-centering/elevation)
-      await invoke("set_window_desktop_position", {
-        x: Math.round(config.windowX),
-        y: Math.round(config.windowY)
-      });
+      await setWindowDesktopPosition(
+        Math.round(config.windowX),
+        Math.round(config.windowY)
+      );
       console.log(
         `[deskumi] Restored window position via native GTK to (${config.windowX}, ${config.windowY})`
       );

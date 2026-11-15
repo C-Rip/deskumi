@@ -129,6 +129,8 @@ export interface WindowDragSetupOptions {
   onDragStart?: () => void;
   /** Optional distance in pixels before triggering drag. If 0 (default), triggers immediately on mousedown. */
   threshold?: number;
+  /** Optional predicate to validate if mousedown at (clientX, clientY) is allowed to start dragging (e.g. inside avatar silhouette). */
+  canDragAt?: (clientX: number, clientY: number) => boolean;
 }
 
 /**
@@ -143,7 +145,8 @@ export function setupWindowDrag(
     ignoreInteractive = true,
     windowApi,
     onDragStart,
-    threshold = 0
+    threshold = 0,
+    canDragAt
   } = options;
 
   if (!target) {
@@ -158,6 +161,10 @@ export function setupWindowDrag(
     if (typeof mouseEvent?.button !== "number") return;
 
     if (!shouldStartDrag(mouseEvent, { ignoreInteractive })) {
+      return;
+    }
+
+    if (canDragAt && !canDragAt(mouseEvent.clientX, mouseEvent.clientY)) {
       return;
     }
 

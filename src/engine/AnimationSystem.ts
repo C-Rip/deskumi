@@ -103,18 +103,29 @@ export class AnimationSystem implements System {
   private elapsedTime = 0;
   private isDisposed = false;
   private wasVRMAPlaying = false;
+  private targetSitting = false;
+  private sitBlend = 0;
 
   // Normalized bone node references
   private readonly chestNode: THREE.Object3D | null;
   private readonly hipsNode: THREE.Object3D | null;
   private readonly leftUpperArmNode: THREE.Object3D | null;
   private readonly rightUpperArmNode: THREE.Object3D | null;
+  private readonly leftUpperLegNode: THREE.Object3D | null;
+  private readonly rightUpperLegNode: THREE.Object3D | null;
+  private readonly leftLowerLegNode: THREE.Object3D | null;
+  private readonly rightLowerLegNode: THREE.Object3D | null;
 
-  // Base rotations to allow restoring on dispose
+  // Base rotations & positions to allow restoring on dispose
   private readonly baseChestRotation = new THREE.Euler();
   private readonly baseHipsRotation = new THREE.Euler();
+  private readonly baseHipsPosition = new THREE.Vector3();
   private readonly baseLeftArmRotation = new THREE.Euler();
   private readonly baseRightArmRotation = new THREE.Euler();
+  private readonly baseLeftUpperLegRotation = new THREE.Euler();
+  private readonly baseRightUpperLegRotation = new THREE.Euler();
+  private readonly baseLeftLowerLegRotation = new THREE.Euler();
+  private readonly baseRightLowerLegRotation = new THREE.Euler();
 
   constructor(vrm: VRM, options: AnimationSystemOptions = {}) {
     this.vrm = vrm;
@@ -144,19 +155,40 @@ export class AnimationSystem implements System {
       this.vrm.humanoid?.getNormalizedBoneNode("leftUpperArm") ?? null;
     this.rightUpperArmNode =
       this.vrm.humanoid?.getNormalizedBoneNode("rightUpperArm") ?? null;
+    this.leftUpperLegNode =
+      this.vrm.humanoid?.getNormalizedBoneNode("leftUpperLeg") ?? null;
+    this.rightUpperLegNode =
+      this.vrm.humanoid?.getNormalizedBoneNode("rightUpperLeg") ?? null;
+    this.leftLowerLegNode =
+      this.vrm.humanoid?.getNormalizedBoneNode("leftLowerLeg") ?? null;
+    this.rightLowerLegNode =
+      this.vrm.humanoid?.getNormalizedBoneNode("rightLowerLeg") ?? null;
 
-    // Cache initial base rotations
+    // Cache initial base rotations & hips position
     if (this.chestNode) {
       this.baseChestRotation.copy(this.chestNode.rotation);
     }
     if (this.hipsNode) {
       this.baseHipsRotation.copy(this.hipsNode.rotation);
+      this.baseHipsPosition.copy(this.hipsNode.position);
     }
     if (this.leftUpperArmNode) {
       this.baseLeftArmRotation.copy(this.leftUpperArmNode.rotation);
     }
     if (this.rightUpperArmNode) {
       this.baseRightArmRotation.copy(this.rightUpperArmNode.rotation);
+    }
+    if (this.leftUpperLegNode) {
+      this.baseLeftUpperLegRotation.copy(this.leftUpperLegNode.rotation);
+    }
+    if (this.rightUpperLegNode) {
+      this.baseRightUpperLegRotation.copy(this.rightUpperLegNode.rotation);
+    }
+    if (this.leftLowerLegNode) {
+      this.baseLeftLowerLegRotation.copy(this.leftLowerLegNode.rotation);
+    }
+    if (this.rightLowerLegNode) {
+      this.baseRightLowerLegRotation.copy(this.rightLowerLegNode.rotation);
     }
 
     // Apply initial arm relaxation if requested
@@ -186,6 +218,18 @@ export class AnimationSystem implements System {
     return this.isDisposed;
   }
 
+  public get isSitting(): boolean {
+    return this.targetSitting;
+  }
+
+  /**
+   * Transitions the avatar into or out of a procedural sitting pose
+   * (e.g. when perched on top of a desktop window titlebar).
+   */
+  public setSitting(sitting: boolean): void {
+    this.targetSitting = sitting;
+  }
+
   /**
    * Updates idle bone transforms, blink expression weight, and calls vrm.update(dt).
    * @param dt Delta time since the last rendered frame in seconds.
@@ -207,9 +251,13 @@ export class AnimationSystem implements System {
     }
     this.wasVRMAPlaying = isVRMAPlaying;
 
-    // 2. Procedural Idle Motion (breathing + hip sway + relax arms)
+    // 2. Procedural Idle Motion (breathing + hip sway + relax arms + sitting pose)
     // Paused when VRMA is actively playing so bone tracks drive humanoid without fighting
     if (this.enableIdle && !isVRMAPlaying) {
+      const targetBlend = this.targetSitting ? 1 : 0;
+      const step = Math.min(1, dt * 6);
+      this.sitBlend += (targetBlend - this.sitBlend) * step;
+
       if (this.chestNode) {
         this.chestNode.rotation.x =
           this.baseChestRotation.x +
@@ -221,17 +269,46 @@ export class AnimationSystem implements System {
         this.hipsNode.rotation.z =
           this.baseHipsRotation.z +
           Math.sin(this.elapsedTime * this.swaySpeed) * this.swayAmplitude;
+        this.hipsNode.position.y =
+          this.baseHipsPosition.y - 0.16 * this.sitBlend;
       }
 
       if (this.relaxArms) {
         if (this.leftUpperArmNode) {
           this.leftUpperArmNode.rotation.z =
             this.baseLeftArmRotation.z + this.leftArmAngleZ;
+          this.leftUpperArmNode.rotation.x =
+            this.baseLeftArmRotation.x + 0.2 * this.sitBlend;
         }
         if (this.rightUpperArmNode) {
           this.rightUpperArmNode.rotation.z =
             this.baseRightArmRotation.z + this.rightArmAngleZ;
+          this.rightUpperArmNode.rotation.x =
+            this.baseRightArmRotation.x + 0.2 * this.sitBlend;
         }
+      }
+
+      // Procedural sitting leg pose with subtle dangling swing
+      const legSwing = Math.sin(this.elapsedTime * 2.2) * 0.08 * this.sitBlend;
+      if (this.leftUpperLegNode) {
+        this.leftUpperLegNode.rotation.x =
+          this.baseLeftUpperLegRotation.x - 1.35 * this.sitBlend;
+        this.leftUpperLegNode.rotation.z =
+          this.baseLeftUpperLegRotation.z - 0.06 * this.sitBlend;
+      }
+      if (this.rightUpperLegNode) {
+        this.rightUpperLegNode.rotation.x =
+          this.baseRightUpperLegRotation.x - 1.35 * this.sitBlend;
+        this.rightUpperLegNode.rotation.z =
+          this.baseRightUpperLegRotation.z + 0.06 * this.sitBlend;
+      }
+      if (this.leftLowerLegNode) {
+        this.leftLowerLegNode.rotation.x =
+          this.baseLeftLowerLegRotation.x + 1.45 * this.sitBlend + legSwing;
+      }
+      if (this.rightLowerLegNode) {
+        this.rightLowerLegNode.rotation.x =
+          this.baseRightLowerLegRotation.x + 1.45 * this.sitBlend - legSwing;
       }
     }
 
@@ -255,6 +332,7 @@ export class AnimationSystem implements System {
     }
     if (this.hipsNode) {
       this.hipsNode.rotation.copy(this.baseHipsRotation);
+      this.hipsNode.position.copy(this.baseHipsPosition);
     }
     if (this.leftUpperArmNode) {
       this.leftUpperArmNode.rotation.copy(this.baseLeftArmRotation);
@@ -269,6 +347,18 @@ export class AnimationSystem implements System {
         this.rightUpperArmNode.rotation.z =
           this.baseRightArmRotation.z + this.rightArmAngleZ;
       }
+    }
+    if (this.leftUpperLegNode) {
+      this.leftUpperLegNode.rotation.copy(this.baseLeftUpperLegRotation);
+    }
+    if (this.rightUpperLegNode) {
+      this.rightUpperLegNode.rotation.copy(this.baseRightUpperLegRotation);
+    }
+    if (this.leftLowerLegNode) {
+      this.leftLowerLegNode.rotation.copy(this.baseLeftLowerLegRotation);
+    }
+    if (this.rightLowerLegNode) {
+      this.rightLowerLegNode.rotation.copy(this.baseRightLowerLegRotation);
     }
   }
 

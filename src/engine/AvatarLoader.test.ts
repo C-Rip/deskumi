@@ -11,6 +11,7 @@ import {
   calculateCameraDistance,
   calculatePerspectiveFraming,
   calculateOrthoFraming,
+  calcCenteredAvatarY,
   disposeObject,
   disposeVRM,
   loadVRM
@@ -201,6 +202,13 @@ describe("Camera framing calculations", () => {
     expect(() => calculateOrthoFraming(box, 0)).toThrow(
       "aspect must be positive"
     );
+  });
+
+  it("calcCenteredAvatarY keeps avatar centered around framingCenterY when scaled", () => {
+    expect(calcCenteredAvatarY(0.75, 1.0, 0)).toBeCloseTo(0);
+    expect(calcCenteredAvatarY(0.75, 0.5, 0)).toBeCloseTo(0.375);
+    expect(calcCenteredAvatarY(0.75, 2.0, 0)).toBeCloseTo(-0.75);
+    expect(calcCenteredAvatarY(0.75, 0.5, 0.1)).toBeCloseTo(0.475);
   });
 });
 

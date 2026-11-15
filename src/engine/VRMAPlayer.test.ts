@@ -3,28 +3,8 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { VRM } from "@pixiv/three-vrm";
 import type { VRMAnimation } from "@pixiv/three-vrm-animation";
-import { isTauri } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { createVRMAnimationClip } from "@pixiv/three-vrm-animation";
-import {
-  loadVRMA,
-  loadVRMAFromPathOrUrl,
-  pickVRMAFile,
-  VRMAPlayer
-} from "./VRMAPlayer";
-
-vi.mock("@tauri-apps/api/core", () => ({
-  isTauri: vi.fn(() => false)
-}));
-
-vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn()
-}));
-
-vi.mock("@tauri-apps/plugin-fs", () => ({
-  readFile: vi.fn()
-}));
+import { loadVRMA, loadVRMAFromPathOrUrl, VRMAPlayer } from "./VRMAPlayer";
 
 vi.mock("@pixiv/three-vrm-animation", async (importOriginal) => {
   const actual =
@@ -113,13 +93,8 @@ describe("loadVRMA", () => {
 });
 
 describe("loadVRMAFromPathOrUrl", () => {
-  beforeEach(() => {
-    vi.mocked(isTauri).mockReset();
-    vi.mocked(readFile).mockReset();
-  });
-
-  it("loads directly from web or blob URL without reading filesystem", async () => {
-    vi.mocked(isTauri).mockReturnValue(false);
+  it("loads directly from web or blob URL without calling readLocalFileBytes", async () => {
+    const readLocalFileBytes = vi.fn();
     const mockAnim = createMockVRMAnimation();
     const loadSpy = vi
       .spyOn(GLTFLoader.prototype, "loadAsync")
@@ -129,15 +104,18 @@ describe("loadVRMAFromPathOrUrl", () => {
       } as unknown as import("three/examples/jsm/loaders/GLTFLoader.js").GLTF);
 
     const { vrmAnimation } = await loadVRMAFromPathOrUrl(
-      "https://example.com/dance.vrma"
+      "https://example.com/dance.vrma",
+      { readLocalFileBytes }
     );
     expect(vrmAnimation).toBe(mockAnim);
+    expect(readLocalFileBytes).not.toHaveBeenCalled();
     expect(loadSpy).toHaveBeenCalled();
   });
 
-  it("reads local file in Tauri runtime and converts to Blob URL", async () => {
-    vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(readFile).mockResolvedValue(new Uint8Array([1, 2, 3]));
+  it("reads local file via readLocalFileBytes adapter and converts to Blob URL", async () => {
+    const readLocalFileBytes = vi
+      .fn()
+      .mockResolvedValue(new Uint8Array([1, 2, 3]));
 
     const mockAnim = createMockVRMAnimation();
     const loadSpy = vi
@@ -155,51 +133,17 @@ describe("loadVRMAFromPathOrUrl", () => {
       .mockImplementation(() => {});
 
     const { vrmAnimation, blobUrl } = await loadVRMAFromPathOrUrl(
-      "/path/to/local.vrma"
+      "/path/to/local.vrma",
+      { readLocalFileBytes }
     );
 
-    expect(isTauri).toHaveBeenCalled();
-    expect(readFile).toHaveBeenCalledWith("/path/to/local.vrma");
+    expect(readLocalFileBytes).toHaveBeenCalledWith("/path/to/local.vrma");
     expect(createObjectURLSpy).toHaveBeenCalled();
     expect(revokeObjectURLSpy).toHaveBeenCalledWith("blob:mock-vrma-url");
     expect(vrmAnimation).toBe(mockAnim);
     expect(blobUrl).toBe("blob:mock-vrma-url");
 
     loadSpy.mockRestore();
-  });
-});
-
-describe("pickVRMAFile", () => {
-  beforeEach(() => {
-    vi.mocked(isTauri).mockReset();
-    vi.mocked(open).mockReset();
-  });
-
-  it("returns null in non-Tauri browser environment", async () => {
-    vi.mocked(isTauri).mockReturnValue(false);
-    const result = await pickVRMAFile();
-    expect(result).toBeNull();
-  });
-
-  it("opens native file dialog filtered to .vrma in Tauri runtime", async () => {
-    vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(open).mockResolvedValue("/home/user/dance.vrma");
-
-    const result = await pickVRMAFile();
-    expect(result).toBe("/home/user/dance.vrma");
-    expect(open).toHaveBeenCalledWith(
-      expect.objectContaining({
-        filters: [{ name: "VRM Animation", extensions: ["vrma"] }]
-      })
-    );
-  });
-
-  it("returns null when user cancels dialog", async () => {
-    vi.mocked(isTauri).mockReturnValue(true);
-    vi.mocked(open).mockResolvedValue(null);
-
-    const result = await pickVRMAFile();
-    expect(result).toBeNull();
   });
 });
 

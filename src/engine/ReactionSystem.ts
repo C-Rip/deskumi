@@ -118,6 +118,13 @@ export class ReactionSystem implements System {
       this.vrm.expressionManager.setValue(this.activeReaction.preset, 0);
     }
 
+    // Capture the base position only when starting from rest (not mid-bounce)
+    // so rapid consecutive clicks never accumulate vertical elevation
+    if (!this.activeReaction && this.vrm.scene) {
+      this.initialScenePosY = this.vrm.scene.position.y;
+      this.hasCapturedInitialPos = true;
+    }
+
     this.activeReaction = {
       type,
       preset,
@@ -135,6 +142,18 @@ export class ReactionSystem implements System {
     const choices: ReactionType[] = ["happy", "surprised", "relaxed", "wink"];
     const chosen = choices[Math.floor(Math.random() * choices.length)];
     this.trigger(chosen);
+  }
+
+  /**
+   * Updates the baseline vertical offset (e.g. when changed from settings panel)
+   * so ongoing or future reactions return to the exact new vertical position.
+   */
+  setBasePositionY(y: number): void {
+    this.initialScenePosY = y;
+    this.hasCapturedInitialPos = true;
+    if (!this.activeReaction && this.vrm.scene) {
+      this.vrm.scene.position.y = y;
+    }
   }
 
   /**
@@ -156,11 +175,6 @@ export class ReactionSystem implements System {
       return;
     }
 
-    if (!this.hasCapturedInitialPos && this.vrm.scene) {
-      this.initialScenePosY = this.vrm.scene.position.y;
-      this.hasCapturedInitialPos = true;
-    }
-
     const reaction = this.activeReaction;
     reaction.elapsed += dt;
 
@@ -169,7 +183,7 @@ export class ReactionSystem implements System {
       if (this.vrm.expressionManager) {
         this.vrm.expressionManager.setValue(reaction.preset, 0);
       }
-      if (this.vrm.scene && this.hasCapturedInitialPos) {
+      if (this.vrm.scene) {
         this.vrm.scene.position.y = this.initialScenePosY;
       }
       if (this.headBone) {
@@ -201,7 +215,7 @@ export class ReactionSystem implements System {
     const bounceProgress = elapsed / duration;
     const bounceOffset =
       Math.sin(bounceProgress * Math.PI) * this.bounceAmplitude * weight;
-    if (this.vrm.scene && this.hasCapturedInitialPos) {
+    if (this.vrm.scene) {
       this.vrm.scene.position.y = this.initialScenePosY + bounceOffset;
     }
 
