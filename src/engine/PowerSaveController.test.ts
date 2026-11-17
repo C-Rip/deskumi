@@ -304,4 +304,96 @@ describe("PowerSaveController", () => {
     expect(controller.isDisposed).toBe(true);
     expect(unlistenFn).toHaveBeenCalledTimes(1);
   });
+
+  it("holds activeFps while active locks exist and re-arms idle timer when all locks release", () => {
+    const controller = new PowerSaveController(mockSceneManager, {
+      activeFps: 30,
+      idleFps: 10,
+      idleTimeoutMs: 2_000,
+      autoAttachListeners: false
+    });
+
+    const idleEvents: boolean[] = [];
+    controller.onIdleChange((idle) => idleEvents.push(idle));
+
+    // Enter idle first
+    vi.advanceTimersByTime(2_000);
+    expect(controller.isIdle).toBe(true);
+    expect(mockSceneManager.fpsCap).toBe(10);
+    expect(idleEvents).toEqual([true]);
+
+    // Acquiring a lock immediately restores activeFps and suppresses idle timeout
+    controller.acquireActiveLock("mouth:1");
+    expect(controller.hasActiveLocks()).toBe(true);
+    expect(controller.isIdle).toBe(false);
+    expect(mockSceneManager.fpsCap).toBe(30);
+    expect(idleEvents).toEqual([true, false]);
+
+    // Overlapping second lock
+    controller.acquireActiveLock("pose:1");
+    vi.advanceTimersByTime(20_000);
+    expect(controller.isIdle).toBe(false);
+    expect(mockSceneManager.fpsCap).toBe(30);
+
+    // Releasing one lock keeps activeFps because another lock remains
+    controller.releaseActiveLock("mouth:1");
+    expect(controller.hasActiveLocks()).toBe(true);
+    vi.advanceTimersByTime(10_000);
+    expect(controller.isIdle).toBe(false);
+    expect(mockSceneManager.fpsCap).toBe(30);
+
+    // Releasing an unknown lock does not disturb anything
+    controller.releaseActiveLock("unknown");
+    expect(controller.hasActiveLocks()).toBe(true);
+
+    // Releasing final lock re-arms the idle timer
+    controller.releaseActiveLock("pose:1");
+    expect(controller.hasActiveLocks()).toBe(false);
+    expect(controller.isIdle).toBe(false);
+
+    vi.advanceTimersByTime(1_999);
+    expect(controller.isIdle).toBe(false);
+    expect(mockSceneManager.fpsCap).toBe(30);
+
+    vi.advanceTimersByTime(1);
+    expect(controller.isIdle).toBe(true);
+    expect(mockSceneManager.fpsCap).toBe(10);
+    expect(idleEvents).toEqual([true, false, true]);
+
+    controller.dispose();
+  });
+
+  it("ignores empty tokens, does not wake hidden window on lock, and clears locks on dispose", () => {
+    const controller = new PowerSaveController(mockSceneManager, {
+      activeFps: 30,
+      idleFps: 10,
+      idleTimeoutMs: 1_000,
+      autoAttachListeners: false
+    });
+
+    const visibilityEvents: boolean[] = [];
+    controller.onVisibilityChange((visible) => visibilityEvents.push(visible));
+
+    controller.acquireActiveLock("");
+    expect(controller.hasActiveLocks()).toBe(false);
+
+    controller.setWindowVisible(false);
+    expect(visibilityEvents).toEqual([false]);
+    expect(mockSceneManager.pause).toHaveBeenCalledTimes(1);
+
+    // Lock acquired while hidden must not call resume()
+    controller.acquireActiveLock("mouth:hidden");
+    expect(controller.hasActiveLocks()).toBe(true);
+    expect(mockSceneManager.resume).not.toHaveBeenCalled();
+
+    // When visible again, lock still prevents entering idle until released
+    controller.setWindowVisible(true);
+    expect(visibilityEvents).toEqual([false, true]);
+    vi.advanceTimersByTime(5_000);
+    expect(controller.isIdle).toBe(false);
+
+    // dispose() clears all active locks and listeners
+    controller.dispose();
+    expect(controller.hasActiveLocks()).toBe(false);
+  });
 });

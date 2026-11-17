@@ -1,4 +1,5 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { AvatarController } from "../engine/AvatarController";
 import type { SceneManager } from "../engine/SceneManager";
 import {
   clearAvatar,
@@ -23,6 +24,7 @@ import type { WindowPerchController } from "./window-perch";
 
 export interface AppRuntimeState {
   avatarContext: LoadedAvatarContext | null;
+  avatarController?: AvatarController;
   activeAvatarPath: string | null;
   configuredFrameSize: FrameSize;
   activeScale: number;
@@ -101,7 +103,8 @@ async function applySettingsUpdate(
         () => state.avatarContext,
         (ctx) => {
           state.avatarContext = ctx;
-        }
+        },
+        state.avatarController
       );
     } else {
       try {
@@ -109,7 +112,12 @@ async function applySettingsUpdate(
         if (state.avatarContext) {
           teardownAvatarContext(state.avatarContext, sceneManager);
         }
-        state.avatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+        state.avatarContext = setupAvatarInScene(
+          vrm,
+          sceneManager,
+          blobUrl,
+          state.avatarController
+        );
         applyAvatarTransform(state.avatarContext, nextScale, nextOffsetY);
       } catch (err) {
         console.warn(
@@ -158,7 +166,8 @@ export function setupAppListeners(deps: AppListenersDeps): () => void {
         () => state.avatarContext,
         (ctx) => {
           state.avatarContext = ctx;
-        }
+        },
+        state.avatarController
       );
     })
   );
@@ -171,7 +180,8 @@ export function setupAppListeners(deps: AppListenersDeps): () => void {
         () => state.avatarContext,
         (ctx) => {
           state.avatarContext = ctx;
-        }
+        },
+        state.avatarController
       );
     })
   );

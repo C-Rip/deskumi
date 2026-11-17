@@ -1,4 +1,8 @@
 import sampleAvatarUrl from "../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
+import {
+  AvatarController,
+  classifyClickRegion
+} from "./engine/AvatarController";
 import { getBoneScreenBottomFraction } from "./engine/AvatarLoader";
 import { PowerSaveController } from "./engine/PowerSaveController";
 import { SceneManager } from "./engine/SceneManager";
@@ -75,14 +79,25 @@ window.addEventListener("mouseup", () => {
 
 // Trigger reaction on avatar click ONLY if clicked inside avatar silhouette (and not dragged)
 window.addEventListener("click", (event) => {
-  if (isDragging || event.button !== 0) return;
-  const hit = state.avatarContext?.inputRegionSystem.isPointOnAvatar(
+  if (isDragging || event.button !== 0 || !state.avatarContext) return;
+  const hit = state.avatarContext.inputRegionSystem.isPointOnAvatar(
     event.clientX,
     event.clientY
   );
   if (!hit) return;
-  console.log("[deskumi] Avatar silhouette clicked! Triggering reaction");
-  state.avatarContext?.reactionSystem.triggerRandom();
+  const viewportHeight =
+    appContainer?.clientHeight || window.innerHeight || 600;
+  const region = classifyClickRegion(
+    state.avatarContext.vrm,
+    sceneManager.camera,
+    event.clientY,
+    viewportHeight
+  );
+  avatarController.emitClick(region);
+  console.log(
+    `[deskumi] Avatar silhouette clicked (${region})! Triggering reaction`
+  );
+  state.avatarContext.reactionSystem.triggerRandom();
 });
 
 getPlatformCaps()
@@ -133,6 +148,11 @@ export const powerSaveController = new PowerSaveController(sceneManager, {
   listenTauriVisibility: (handler) =>
     listenTauriEvent<boolean>("tray-visibility-changed", handler)
 });
+
+export const avatarController = new AvatarController({
+  powerSaveController
+});
+state.avatarController = avatarController;
 
 export const windowPerchController = new WindowPerchController({
   getDeskumiSize: () =>
@@ -204,7 +224,12 @@ async function initAvatar(): Promise<void> {
         `[deskumi] Attempting to load saved avatar: ${config.avatarPath}`
       );
       const { vrm, blobUrl } = await loadAvatarModel(config.avatarPath);
-      state.avatarContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+      state.avatarContext = setupAvatarInScene(
+        vrm,
+        sceneManager,
+        blobUrl,
+        avatarController
+      );
       state.activeAvatarPath = config.avatarPath;
       console.log("[deskumi] Loaded saved avatar successfully");
     } catch (err) {
@@ -218,7 +243,12 @@ async function initAvatar(): Promise<void> {
   if (!state.avatarContext) {
     console.log("[deskumi] Loading default sample VRM");
     const { vrm } = await loadAvatarModel(sampleAvatarUrl);
-    state.avatarContext = setupAvatarInScene(vrm, sceneManager);
+    state.avatarContext = setupAvatarInScene(
+      vrm,
+      sceneManager,
+      undefined,
+      avatarController
+    );
     console.log("[deskumi] Default sample VRM loaded successfully");
   }
 

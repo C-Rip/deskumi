@@ -74,6 +74,20 @@ export interface AnimationSystemOptions {
    * Optional pre-configured VRMAPlayer instance.
    */
   vrmaPlayer?: VRMAPlayer;
+
+  /**
+   * Whether AnimationSystem directly writes blink weights to `vrm.expressionManager`.
+   * Set to `false` when `AvatarController` owns expression writes.
+   * @default true
+   */
+  manageExpressions?: boolean;
+
+  /**
+   * Whether AnimationSystem invokes `vrm.update(dt)` at the end of `update(dt)`.
+   * Set to `false` when `AvatarController` performs the final `vrm.update(dt)`.
+   * @default true
+   */
+  autoUpdateVrm?: boolean;
 }
 
 /**
@@ -105,6 +119,9 @@ export class AnimationSystem implements System {
   private wasVRMAPlaying = false;
   private targetSitting = false;
   private sitBlend = 0;
+  private manageExpressions: boolean;
+  private autoUpdateVrm: boolean;
+  private currentBlinkWeight = 0;
 
   // Normalized bone node references
   private readonly chestNode: THREE.Object3D | null;
@@ -133,6 +150,8 @@ export class AnimationSystem implements System {
     this.enableIdle = options.enableIdle ?? true;
     this.enableBlink = options.enableBlink ?? true;
     this.relaxArms = options.relaxArms ?? true;
+    this.manageExpressions = options.manageExpressions ?? true;
+    this.autoUpdateVrm = options.autoUpdateVrm ?? true;
 
     this.leftArmAngleZ = options.leftArmAngleZ ?? -1.2;
     this.rightArmAngleZ = options.rightArmAngleZ ?? 1.2;
@@ -220,6 +239,25 @@ export class AnimationSystem implements System {
 
   public get isSitting(): boolean {
     return this.targetSitting;
+  }
+
+  /**
+   * Delegates expression writing and `vrm.update(dt)` to an external
+   * coordinator such as `AvatarController`.
+   */
+  public setManagedByController(managed: boolean): void {
+    this.manageExpressions = !managed;
+    this.autoUpdateVrm = !managed;
+  }
+
+  /**
+   * Returns the latest computed procedural blink weight in [0, 1].
+   */
+  public getBlinkWeight(): number {
+    if (this.isDisposed || !this.enableBlink) {
+      return 0;
+    }
+    return this.currentBlinkWeight;
   }
 
   /**
@@ -313,13 +351,19 @@ export class AnimationSystem implements System {
     }
 
     // 3. Procedural Blink Expression
-    if (this.enableBlink && this.vrm.expressionManager) {
-      const blinkValue = this.blinkController.update(dt);
-      this.vrm.expressionManager.setValue("blink", blinkValue);
+    if (this.enableBlink) {
+      this.currentBlinkWeight = this.blinkController.update(dt);
+      if (this.manageExpressions && this.vrm.expressionManager) {
+        this.vrm.expressionManager.setValue("blink", this.currentBlinkWeight);
+      }
+    } else {
+      this.currentBlinkWeight = 0;
     }
 
     // 4. VRM Core & Secondary Physics Update (spring bones, constraints, lookAt, morphs)
-    this.vrm.update(dt);
+    if (this.autoUpdateVrm) {
+      this.vrm.update(dt);
+    }
   }
 
   /**
@@ -373,9 +417,10 @@ export class AnimationSystem implements System {
 
     this.vrmaPlayer.dispose();
     this.restoreBasePose(false);
+    this.currentBlinkWeight = 0;
 
-    // Reset blink expression
-    if (this.vrm.expressionManager) {
+    // Reset blink expression when directly managing expressions
+    if (this.manageExpressions && this.vrm.expressionManager) {
       this.vrm.expressionManager.setValue("blink", 0);
     }
   }

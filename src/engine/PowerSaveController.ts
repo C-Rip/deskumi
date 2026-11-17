@@ -75,6 +75,9 @@ export class PowerSaveController {
   private _isDisposed = false;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private tauriUnlisten: UnlistenFn | null = null;
+  private readonly activeLocks = new Set<string>();
+  private readonly idleListeners = new Set<(idle: boolean) => void>();
+  private readonly visibilityListeners = new Set<(visible: boolean) => void>();
 
   private readonly target: EventTarget | null;
   private readonly doc: Document | null;
@@ -209,6 +212,71 @@ export class PowerSaveController {
   }
 
   /**
+   * Acquires an active wake lock for external activity (e.g. speech, VRMA, reaction).
+   * While at least one lock is active and the window is visible, maintains `activeFps`
+   * and suppresses idle timeout.
+   */
+  public acquireActiveLock(token: string): void {
+    if (this._isDisposed || !token) {
+      return;
+    }
+
+    this.activeLocks.add(token);
+    this.clearIdleTimer();
+
+    if (this._isWindowVisible) {
+      const wasIdle = this._isIdle;
+      this._isIdle = false;
+      this.sceneManager.fpsCap = this._activeFps;
+      if (wasIdle) {
+        this.emitIdleChange(false);
+      }
+    }
+  }
+
+  /**
+   * Releases a previously acquired active wake lock.
+   * When the last lock is released while the window is visible, re-arms the idle timer.
+   */
+  public releaseActiveLock(token: string): void {
+    if (this._isDisposed || !token) {
+      return;
+    }
+
+    const removed = this.activeLocks.delete(token);
+    if (removed && this.activeLocks.size === 0 && this._isWindowVisible) {
+      this.scheduleIdleTimer();
+    }
+  }
+
+  /**
+   * Returns true when one or more active wake locks are currently held.
+   */
+  public hasActiveLocks(): boolean {
+    return this.activeLocks.size > 0;
+  }
+
+  /**
+   * Subscribes to transitions between active and idle power-save modes.
+   */
+  public onIdleChange(listener: (idle: boolean) => void): UnlistenFn {
+    this.idleListeners.add(listener);
+    return () => {
+      this.idleListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Subscribes to window visibility transitions.
+   */
+  public onVisibilityChange(listener: (visible: boolean) => void): UnlistenFn {
+    this.visibilityListeners.add(listener);
+    return () => {
+      this.visibilityListeners.delete(listener);
+    };
+  }
+
+  /**
    * Signals user or external activity, immediately restoring `activeFps`
    * and resetting the idle countdown timer.
    */
@@ -220,6 +288,7 @@ export class PowerSaveController {
     if (this._isIdle) {
       this._isIdle = false;
       this.sceneManager.fpsCap = this._activeFps;
+      this.emitIdleChange(false);
     }
 
     this.scheduleIdleTimer();
@@ -236,21 +305,30 @@ export class PowerSaveController {
       return;
     }
 
+    const visibilityChanged = this._isWindowVisible !== visible;
     this._isWindowVisible = visible;
 
     if (!visible) {
       this.clearIdleTimer();
       this.sceneManager.pause();
     } else {
+      const wasIdle = this._isIdle;
       this._isIdle = false;
       this.sceneManager.fpsCap = this._activeFps;
       this.sceneManager.resume();
       this.scheduleIdleTimer();
+      if (wasIdle) {
+        this.emitIdleChange(false);
+      }
+    }
+
+    if (visibilityChanged) {
+      this.emitVisibilityChange(visible);
     }
   }
 
   /**
-   * Disposes of listeners and timers.
+   * Disposes of listeners, active wake locks, and timers.
    */
   public dispose(): void {
     if (this._isDisposed) {
@@ -258,6 +336,9 @@ export class PowerSaveController {
     }
     this._isDisposed = true;
     this.clearIdleTimer();
+    this.activeLocks.clear();
+    this.idleListeners.clear();
+    this.visibilityListeners.clear();
 
     if (this.tauriUnlisten) {
       this.tauriUnlisten();
@@ -271,7 +352,11 @@ export class PowerSaveController {
 
   private scheduleIdleTimer(): void {
     this.clearIdleTimer();
-    if (this._isDisposed || !this._isWindowVisible) {
+    if (
+      this._isDisposed ||
+      !this._isWindowVisible ||
+      this.activeLocks.size > 0
+    ) {
       return;
     }
     this.idleTimer = setTimeout(() => {
@@ -288,18 +373,38 @@ export class PowerSaveController {
 
   private enterIdle(): void {
     this.idleTimer = null;
-    if (this._isDisposed || !this._isWindowVisible) {
+    if (
+      this._isDisposed ||
+      !this._isWindowVisible ||
+      this.activeLocks.size > 0
+    ) {
       return;
     }
+    const wasIdle = this._isIdle;
     this._isIdle = true;
     this.sceneManager.fpsCap = this._idleFps;
+    if (!wasIdle) {
+      this.emitIdleChange(true);
+    }
+  }
+
+  private emitIdleChange(idle: boolean): void {
+    for (const listener of this.idleListeners) {
+      listener(idle);
+    }
+  }
+
+  private emitVisibilityChange(visible: boolean): void {
+    for (const listener of this.visibilityListeners) {
+      listener(visible);
+    }
   }
 
   private readonly onDomActivity = (): void => {
     this.notifyActivity();
   };
 
-  private readonly onVisibilityChange = (): void => {
+  private readonly handleDocVisibilityChange = (): void => {
     if (!this.doc || this._isDisposed) {
       return;
     }
@@ -319,7 +424,10 @@ export class PowerSaveController {
       }
     }
     if (this.doc) {
-      this.doc.addEventListener("visibilitychange", this.onVisibilityChange);
+      this.doc.addEventListener(
+        "visibilitychange",
+        this.handleDocVisibilityChange
+      );
     }
   }
 
@@ -330,7 +438,10 @@ export class PowerSaveController {
       }
     }
     if (this.doc) {
-      this.doc.removeEventListener("visibilitychange", this.onVisibilityChange);
+      this.doc.removeEventListener(
+        "visibilitychange",
+        this.handleDocVisibilityChange
+      );
     }
   }
 }

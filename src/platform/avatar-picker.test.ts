@@ -8,6 +8,9 @@ import {
   setupAvatarInScene,
   teardownAvatarContext
 } from "./avatar-picker";
+import { AvatarController } from "../engine/AvatarController";
+import type { AvatarEvent } from "../engine/AvatarCommand";
+import { PowerSaveController } from "../engine/PowerSaveController";
 import type { SceneManager } from "../engine/SceneManager";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -93,6 +96,44 @@ describe("avatar-picker lifecycle", () => {
     expect(revokeSpy).toHaveBeenCalledWith("blob:fake-url");
 
     revokeSpy.mockRestore();
+  });
+
+  it("attaches AvatarController on setup and emits avatarChange events on load and clear", () => {
+    const vrm = createMockVRM();
+    (vrm as unknown as { expressionManager: unknown }).expressionManager = {
+      expressionMap: { happy: {}, sad: {} },
+      setValue: vi.fn(),
+      getValue: vi.fn()
+    };
+    const sceneManager = createMockSceneManager();
+    const powerSave = new PowerSaveController(sceneManager, {
+      autoAttachListeners: false
+    });
+    const controller = new AvatarController({ powerSaveController: powerSave });
+    const events: AvatarEvent[] = [];
+    controller.onEvent((ev) => events.push(ev));
+
+    const context = setupAvatarInScene(
+      vrm,
+      sceneManager,
+      undefined,
+      controller
+    );
+    expect(context.avatarController).toBe(controller);
+    expect(sceneManager.registerSystem).toHaveBeenCalledTimes(5);
+    expect(events).toContainEqual({
+      type: "avatarChange",
+      expressions: ["happy", "sad"]
+    });
+
+    teardownAvatarContext(context, sceneManager, { emitEmptyAvatar: true });
+    expect(events).toContainEqual({
+      type: "avatarChange",
+      expressions: []
+    });
+
+    controller.dispose();
+    powerSave.dispose();
   });
 });
 

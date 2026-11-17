@@ -265,6 +265,7 @@ export class LookAtSystem implements System {
   private currentPitch = 0;
 
   private readonly lastMouseNdc = { x: 0, y: 0 };
+  private externalNdc: { x: number; y: number } | null = null;
   private readonly currentTargetPosition = new THREE.Vector3();
   private readonly desiredTargetPosition = new THREE.Vector3();
   private readonly neutralTargetPosition = new THREE.Vector3();
@@ -389,6 +390,9 @@ export class LookAtSystem implements System {
   }
 
   public get isIdle(): boolean {
+    if (this.externalNdc !== null) {
+      return false;
+    }
     return (
       this.isMouseOutside ||
       this.timeSinceLastMove >= this.idleTimeout ||
@@ -413,6 +417,23 @@ export class LookAtSystem implements System {
     this.isMouseOutside = false;
     this.hasReceivedInput = true;
     this.timeSinceLastMove = 0;
+  }
+
+  /**
+   * Overrides pointer tracking with an external normalized target (e.g. from `AvatarController`).
+   */
+  public setExternalNdc(ndcX: number, ndcY: number): void {
+    this.externalNdc = {
+      x: Math.max(-1, Math.min(1, ndcX)),
+      y: Math.max(-1, Math.min(1, ndcY))
+    };
+  }
+
+  /**
+   * Releases any external target override and returns control to cursor / idle tracking.
+   */
+  public clearExternalNdc(): void {
+    this.externalNdc = null;
   }
 
   /**
@@ -473,7 +494,7 @@ export class LookAtSystem implements System {
       // 4-quadrant symmetric division of the window frame centered at (0, 0)
       // Vertical symmetry axis at x = 0, horizontal symmetry axis at y = 0
       const { yaw, pitch } = calcQuadrantExponentialAngles(
-        this.lastMouseNdc,
+        this.externalNdc ?? this.lastMouseNdc,
         { x: 0, y: 0 },
         this.maxYaw,
         this.maxPitch
@@ -571,6 +592,7 @@ export class LookAtSystem implements System {
       return;
     }
     this.isDisposed = true;
+    this.externalNdc = null;
 
     if (this.targetElement) {
       this.targetElement.removeEventListener(

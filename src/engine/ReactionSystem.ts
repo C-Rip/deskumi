@@ -40,6 +40,13 @@ export interface ReactionSystemOptions {
    * @default 0.08
    */
   nodAmplitude?: number;
+
+  /**
+   * Whether ReactionSystem directly writes expression presets to `vrm.expressionManager`.
+   * Set to `false` when `AvatarController` owns expression writes.
+   * @default true
+   */
+  manageExpressions?: boolean;
 }
 
 /**
@@ -52,6 +59,7 @@ interface ActiveReaction {
   duration: number;
   fadeIn: number;
   fadeOut: number;
+  intensity: number;
 }
 
 /**
@@ -65,6 +73,8 @@ export class ReactionSystem implements System {
   private readonly defaultFadeOut: number;
   private readonly bounceAmplitude: number;
   private readonly nodAmplitude: number;
+  private manageExpressions: boolean;
+  private currentWeight = 0;
 
   // Cache initial neck/head rotations if available
   private headBone: THREE.Object3D | null = null;
@@ -81,6 +91,7 @@ export class ReactionSystem implements System {
     this.defaultFadeOut = options.fadeOutDuration ?? 0.4;
     this.bounceAmplitude = options.bounceAmplitude ?? 0.04;
     this.nodAmplitude = options.nodAmplitude ?? 0.08;
+    this.manageExpressions = options.manageExpressions ?? true;
 
     this.headBone =
       vrm.humanoid?.getNormalizedBoneNode("head") ??
@@ -93,10 +104,55 @@ export class ReactionSystem implements System {
   }
 
   /**
+   * Delegates expression writing to an external coordinator such as `AvatarController`.
+   */
+  public setManagedByController(managed: boolean): void {
+    this.manageExpressions = !managed;
+  }
+
+  /**
+   * Returns the active reaction preset and current blended weight, or null if idle.
+   */
+  public getActiveExpression(): { preset: string; weight: number } | null {
+    if (!this.activeReaction) {
+      return null;
+    }
+    return {
+      preset: this.activeReaction.preset,
+      weight: this.currentWeight
+    };
+  }
+
+  /**
+   * Stops any active reaction and restores pose transforms.
+   */
+  public stop(): void {
+    if (
+      this.manageExpressions &&
+      this.activeReaction &&
+      this.vrm.expressionManager
+    ) {
+      this.vrm.expressionManager.setValue(this.activeReaction.preset, 0);
+    }
+    if (this.vrm.scene && this.hasCapturedInitialPos) {
+      this.vrm.scene.position.y = this.initialScenePosY;
+    }
+    if (this.headBone) {
+      this.headBone.rotation.x = this.initialHeadRotX;
+    }
+    this.activeReaction = null;
+    this.currentWeight = 0;
+  }
+
+  /**
    * Triggers a reaction on the avatar.
    * If a reaction is already playing, it will be smoothly replaced.
    */
-  trigger(type: ReactionType = "happy", duration = this.defaultDuration): void {
+  trigger(
+    type: ReactionType = "happy",
+    duration = this.defaultDuration,
+    intensity = 1.0
+  ): void {
     let preset: VRMExpressionPresetName | string = "happy";
     switch (type) {
       case "happy":
@@ -113,8 +169,12 @@ export class ReactionSystem implements System {
         break;
     }
 
-    // Reset previous expression if active
-    if (this.activeReaction && this.vrm.expressionManager) {
+    // Reset previous expression if directly managing expressions
+    if (
+      this.manageExpressions &&
+      this.activeReaction &&
+      this.vrm.expressionManager
+    ) {
       this.vrm.expressionManager.setValue(this.activeReaction.preset, 0);
     }
 
@@ -125,13 +185,18 @@ export class ReactionSystem implements System {
       this.hasCapturedInitialPos = true;
     }
 
+    const clampedDuration = Math.max(duration, 0.2);
+    const clampedIntensity = Math.max(0, Math.min(1, intensity));
+    this.currentWeight = 0;
+
     this.activeReaction = {
       type,
       preset,
       elapsed: 0,
-      duration: Math.max(duration, 0.2),
-      fadeIn: Math.min(this.defaultFadeIn, duration * 0.3),
-      fadeOut: Math.min(this.defaultFadeOut, duration * 0.4)
+      duration: clampedDuration,
+      fadeIn: Math.min(this.defaultFadeIn, clampedDuration * 0.3),
+      fadeOut: Math.min(this.defaultFadeOut, clampedDuration * 0.4),
+      intensity: clampedIntensity
     };
   }
 
@@ -180,7 +245,7 @@ export class ReactionSystem implements System {
 
     if (reaction.elapsed >= reaction.duration) {
       // End reaction
-      if (this.vrm.expressionManager) {
+      if (this.manageExpressions && this.vrm.expressionManager) {
         this.vrm.expressionManager.setValue(reaction.preset, 0);
       }
       if (this.vrm.scene) {
@@ -190,6 +255,7 @@ export class ReactionSystem implements System {
         this.headBone.rotation.x = this.initialHeadRotX;
       }
       this.activeReaction = null;
+      this.currentWeight = 0;
       return;
     }
 
@@ -204,10 +270,11 @@ export class ReactionSystem implements System {
       weight = Math.sin(outProgress * (Math.PI / 2));
     }
 
-    weight = Math.max(0, Math.min(1, weight));
+    weight = Math.max(0, Math.min(1, weight)) * reaction.intensity;
+    this.currentWeight = weight;
 
-    // Apply facial expression to VRM
-    if (this.vrm.expressionManager) {
+    // Apply facial expression to VRM when directly managing expressions
+    if (this.manageExpressions && this.vrm.expressionManager) {
       this.vrm.expressionManager.setValue(reaction.preset, weight);
     }
 
@@ -228,15 +295,6 @@ export class ReactionSystem implements System {
   }
 
   dispose(): void {
-    if (this.activeReaction && this.vrm.expressionManager) {
-      this.vrm.expressionManager.setValue(this.activeReaction.preset, 0);
-    }
-    if (this.vrm.scene && this.hasCapturedInitialPos) {
-      this.vrm.scene.position.y = this.initialScenePosY;
-    }
-    if (this.headBone) {
-      this.headBone.rotation.x = this.initialHeadRotX;
-    }
-    this.activeReaction = null;
+    this.stop();
   }
 }

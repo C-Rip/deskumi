@@ -8,6 +8,7 @@ import {
   loadVRM
 } from "../engine/AvatarLoader";
 import { AnimationSystem } from "../engine/AnimationSystem";
+import type { AvatarController } from "../engine/AvatarController";
 import { LookAtSystem } from "../engine/LookAtSystem";
 import { ReactionSystem } from "../engine/ReactionSystem";
 import { AvatarInputRegionSystem } from "./input-region";
@@ -58,6 +59,7 @@ export interface LoadedAvatarContext {
   reactionSystem: ReactionSystem;
   inputRegionSystem: AvatarInputRegionSystem;
   globalCursorSystem?: GlobalCursorLookAtSystem;
+  avatarController?: AvatarController;
   framingCenterY: number;
   blobUrl?: string;
 }
@@ -103,7 +105,8 @@ export async function loadAvatarModel(
 export function setupAvatarInScene(
   vrm: VRM,
   sceneManager: SceneManager,
-  blobUrl?: string
+  blobUrl?: string,
+  avatarController?: AvatarController
 ): LoadedAvatarContext {
   sceneManager.scene.add(vrm.scene);
 
@@ -119,18 +122,18 @@ export function setupAvatarInScene(
   sceneManager.camera.position.copy(framing.cameraPosition);
   sceneManager.camera.lookAt(framing.target);
 
-  // Register look-at system
+  // Register look-at and procedural animation systems
   const lookAtSystem = new LookAtSystem(vrm, {
     camera: sceneManager.camera,
     scene: sceneManager.scene
   });
-  sceneManager.registerSystem(lookAtSystem);
-
-  // Register procedural animation system
   const animationSystem = new AnimationSystem(vrm);
-  sceneManager.registerSystem(animationSystem);
+  const reactionSystem = new ReactionSystem(vrm, {
+    duration: 1.5,
+    bounceAmplitude: 0.04
+  });
 
-  // Register pixel-perfect silhouette hit testing (click-through outside avatar silhouette)
+  // Pixel-perfect silhouette hit testing (click-through outside avatar silhouette)
   const inputRegionSystem = new AvatarInputRegionSystem(
     vrm,
     sceneManager.camera,
@@ -143,24 +146,40 @@ export function setupAvatarInScene(
       getLogicalFrameSize: () => sceneManager.getTargetFrameSize()
     }
   );
-  sceneManager.registerSystem(inputRegionSystem);
 
-  // Register global cursor LookAt bridge when running in Tauri (active if caps.globalCursor)
+  // Global cursor LookAt bridge when running in Tauri (active if caps.globalCursor)
   let globalCursorSystem: GlobalCursorLookAtSystem | undefined;
   if (isTauri()) {
     globalCursorSystem = new GlobalCursorLookAtSystem(lookAtSystem, {
       hz: 15,
       getLogicalFrameSize: () => sceneManager.getTargetFrameSize()
     });
-    sceneManager.registerSystem(globalCursorSystem);
   }
 
-  // Register reaction system
-  const reactionSystem = new ReactionSystem(vrm, {
-    duration: 1.5,
-    bounceAmplitude: 0.04
-  });
-  sceneManager.registerSystem(reactionSystem);
+  sceneManager.registerSystem(lookAtSystem);
+  sceneManager.registerSystem(animationSystem);
+
+  if (avatarController) {
+    sceneManager.unregisterSystem(avatarController);
+    sceneManager.registerSystem(reactionSystem);
+    avatarController.attachAvatar({
+      vrm,
+      animationSystem,
+      reactionSystem,
+      lookAtSystem
+    });
+    sceneManager.registerSystem(avatarController);
+    sceneManager.registerSystem(inputRegionSystem);
+    if (globalCursorSystem) {
+      sceneManager.registerSystem(globalCursorSystem);
+    }
+  } else {
+    sceneManager.registerSystem(inputRegionSystem);
+    if (globalCursorSystem) {
+      sceneManager.registerSystem(globalCursorSystem);
+    }
+    sceneManager.registerSystem(reactionSystem);
+  }
 
   return {
     vrm,
@@ -169,6 +188,7 @@ export function setupAvatarInScene(
     reactionSystem,
     inputRegionSystem,
     globalCursorSystem,
+    avatarController,
     framingCenterY: framing.target.y,
     blobUrl
   };
@@ -179,8 +199,15 @@ export function setupAvatarInScene(
  */
 export function teardownAvatarContext(
   context: LoadedAvatarContext,
-  sceneManager: SceneManager
+  sceneManager: SceneManager,
+  options: { emitEmptyAvatar?: boolean } = {}
 ): void {
+  if (context.avatarController) {
+    sceneManager.unregisterSystem(context.avatarController);
+    context.avatarController.detachAvatar({
+      emitEvent: options.emitEmptyAvatar ?? false
+    });
+  }
   sceneManager.unregisterSystem(context.lookAtSystem);
   sceneManager.unregisterSystem(context.animationSystem);
   sceneManager.unregisterSystem(context.inputRegionSystem);
@@ -234,7 +261,8 @@ export async function pickVRMFile(): Promise<string | null> {
 export async function pickAndSwitchAvatar(
   sceneManager: SceneManager,
   getCurrentContext: () => LoadedAvatarContext | null,
-  setCurrentContext: (ctx: LoadedAvatarContext) => void
+  setCurrentContext: (ctx: LoadedAvatarContext) => void,
+  avatarController?: AvatarController
 ): Promise<boolean> {
   const selectedPath = await pickVRMFile();
   if (!selectedPath) {
@@ -244,11 +272,17 @@ export async function pickAndSwitchAvatar(
   try {
     const { vrm, blobUrl } = await loadAvatarModel(selectedPath);
     const prevContext = getCurrentContext();
+    const controller = avatarController ?? prevContext?.avatarController;
     if (prevContext) {
       teardownAvatarContext(prevContext, sceneManager);
     }
 
-    const newContext = setupAvatarInScene(vrm, sceneManager, blobUrl);
+    const newContext = setupAvatarInScene(
+      vrm,
+      sceneManager,
+      blobUrl,
+      controller
+    );
     const config = defaultConfigManager.get();
     if (config.avatarScale) {
       newContext.vrm.scene.scale.setScalar(config.avatarScale);
@@ -289,12 +323,15 @@ export async function pickAndSwitchAvatar(
 export async function clearAvatar(
   sceneManager: SceneManager,
   getCurrentContext: () => LoadedAvatarContext | null,
-  setCurrentContext: (ctx: LoadedAvatarContext | null) => void
+  setCurrentContext: (ctx: LoadedAvatarContext | null) => void,
+  avatarController?: AvatarController
 ): Promise<void> {
   const prevContext = getCurrentContext();
   if (prevContext) {
-    teardownAvatarContext(prevContext, sceneManager);
+    teardownAvatarContext(prevContext, sceneManager, { emitEmptyAvatar: true });
     setCurrentContext(null);
+  } else {
+    avatarController?.detachAvatar({ emitEvent: true });
   }
 
   // Remove saved avatarPath from store

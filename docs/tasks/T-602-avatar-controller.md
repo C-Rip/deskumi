@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
-| Estado        | lista                                                                    |
-| Asignado      | —                                                                        |
+| Estado        | hecha                                                                    |
+| Asignado      | subagent-T-602                                                           |
 | Fase          | F6                                                                       |
 | Rama          | `feat/T-602-avatar-controller`                                           |
 | Depende de    | T-600, T-601                                                             |
@@ -50,12 +50,12 @@ Definir el contrato versionado `AvatarCommand` / `AvatarEvent` (`v: 1`) con vali
 
 ## Criterios de aceptación
 
-- [ ] `validateAvatarCommand` rechaza todos los casos inválidos o fuera de rango sin recortar en silencio ni importar `@tauri-apps/*`.
-- [ ] `AvatarController` es el único escritor de `vrm.expressionManager` antes de `vrm.update(dt)`, respetando `overrideBlink`/`overrideMouth` y tratando visema `"neutral"` como boca cerrada sin escribir `"neutral"`.
-- [ ] Los 4 canales (`lookAt`, `expression`, `mouth`, `pose`) arbitran correctamente `interrupt`, `queue` y `drop`, y rechazan comandos con `hidden` si la ventana está oculta.
-- [ ] `click` sobre el avatar clasifica `"head"` vs `"body"` proyectando el hueso `neck`.
-- [ ] `PowerSaveController` sostiene `activeFps` con locks activos y vuelve a `10 FPS` al liberarlos (incluyendo rutas de error, cancelación y `dispose()`).
-- [ ] `npm run check` pasa con todos los tests nuevos y existentes en verde.
+- [x] `validateAvatarCommand` rechaza todos los casos inválidos o fuera de rango sin recortar en silencio ni importar `@tauri-apps/*`.
+- [x] `AvatarController` es el único escritor de `vrm.expressionManager` antes de `vrm.update(dt)`, respetando `overrideBlink`/`overrideMouth` y tratando visema `"neutral"` como boca cerrada sin escribir `"neutral"`.
+- [x] Los 4 canales (`lookAt`, `expression`, `mouth`, `pose`) arbitran correctamente `interrupt`, `queue` y `drop`, y rechazan comandos con `hidden` si la ventana está oculta.
+- [x] `click` sobre el avatar clasifica `"head"` vs `"body"` proyectando el hueso `neck`.
+- [x] `PowerSaveController` sostiene `activeFps` con locks activos y vuelve a `10 FPS` al liberarlos (incluyendo rutas de error, cancelación y `dispose()`).
+- [x] `npm run check` pasa con todos los tests nuevos y existentes en verde.
 
 ## Archivos esperados
 
@@ -77,4 +77,17 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué se hizo:**
+  - Contrato versionado `v: 1` y validador estricto (`unknown` narrowing sin `any`, cero imports de `@tauri-apps/*` ni DOM) en [`src/engine/AvatarCommand.ts`](../../src/engine/AvatarCommand.ts), [`AvatarCommandSchema.ts`](../../src/engine/AvatarCommandSchema.ts), [`AvatarCommandFieldReaders.ts`](../../src/engine/AvatarCommandFieldReaders.ts), [`AvatarCommandSpeechParsers.ts`](../../src/engine/AvatarCommandSpeechParsers.ts) y [`AvatarCommandValidator.ts`](../../src/engine/AvatarCommandValidator.ts), cubierto por [`AvatarCommand.test.ts`](../../src/engine/AvatarCommand.test.ts).
+  - Controlador unificado [`src/engine/AvatarController.ts`](../../src/engine/AvatarController.ts) (implementando `System`) con [`ExpressionComposer.ts`](../../src/engine/ExpressionComposer.ts), [`AvatarChannels.ts`](../../src/engine/AvatarChannels.ts), [`AvatarAuxChannels.ts`](../../src/engine/AvatarAuxChannels.ts), [`AvatarMouthChannel.ts`](../../src/engine/AvatarMouthChannel.ts), [`AvatarPoseChannel.ts`](../../src/engine/AvatarPoseChannel.ts) y [`AvatarClickRegion.ts`](../../src/engine/AvatarClickRegion.ts), cubierto por [`AvatarController.test.ts`](../../src/engine/AvatarController.test.ts).
+  - Adaptación retrocompatible de [`AnimationSystem.ts`](../../src/engine/AnimationSystem.ts), [`ReactionSystem.ts`](../../src/engine/ReactionSystem.ts) y [`LookAtSystem.ts`](../../src/engine/LookAtSystem.ts) para delegar `vrm.expressionManager`, `vrm.update(dt)` y overrides externos `lookAt` en `AvatarController`.
+  - _Active wake locks_ (`acquireActiveLock`, `releaseActiveLock`, `hasActiveLocks`) y listeners `onIdleChange`/`onVisibilityChange` en [`PowerSaveController.ts`](../../src/engine/PowerSaveController.ts) con cobertura `vi.useFakeTimers()` en [`PowerSaveController.test.ts`](../../src/engine/PowerSaveController.test.ts).
+  - Conexión en [`src/main.ts`](../../src/main.ts) (284 líneas), [`src/platform/avatar-picker.ts`](../../src/platform/avatar-picker.ts) y [`src/platform/app-listeners.ts`](../../src/platform/app-listeners.ts) emitiendo `avatarChange`, `idleChange` y `click { region }`.
+- **Decisiones tomadas:**
+  - `AvatarController` se mantiene persistente en `main.ts` y se adjunta/desadjunta en `setupAvatarInScene` / `teardownAvatarContext` para preservar suscripciones de eventos (`T-603`..`T-606`) entre cambios de modelo VRM.
+  - Cuando `expressionManager` carece de `expressionMap` (mocks unitarios mínimos), se omite el chequeo `unknown_expression`, mientras que los VRM reales validan contra `Object.keys(expressionMap)`.
+  - Si un emote con `overrideMouth === "none"` coincide con boca abierta (`mouthPeak > 0`), su peso se atenúa (`1 - 0.5 * mouthPeak`) para evitar sobredeformación bucal.
+- **Siguientes pasos / desbloqueados:**
+  - `T-603` (`AudioOutput` / `LipSyncController` / `SpeechController`), `T-604` (`SpeechBubbleOverlay`), `T-605` (puente WS) y `T-606` (`PluginHost` y registro `.vrma`) quedan desbloqueadas sobre el contrato `v: 1` y `AvatarController`.
+- **Verificación / entorno:**
+  - Verificado mediante `npm run check` (22 archivos de test, 207 tests), `cargo fmt --check`, `cargo clippy -- -D warnings` y `cargo test` en Linux; no se ejecutó prueba interactiva GUI con `npm run tauri dev` en esta sesión headless de subagente.
