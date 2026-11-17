@@ -103,3 +103,105 @@ canvas {
   text-align: center;
   pointer-events: none;
 }
+
+/* Speech Bubble Overlay */
+.speech-bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  box-sizing: border-box;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  border: 1.5px solid rgba(15, 23, 42, 0.16);
+  box-shadow:
+    0 8px 20px rgba(15, 23, 42, 0.18),
+    0 2px 6px rgba(15, 23, 42, 0.1);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(4px) scale(0.94);
+  transform-origin: center bottom;
+  transition:
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 160ms;
+}
+
+.speech-bubble[data-placement="left"] {
+  transform: translateX(-4px) scale(0.94);
+  transform-origin: right center;
+}
+
+.speech-bubble[data-placement="right"] {
+  transform: translateX(4px) scale(0.94);
+  transform-origin: left center;
+}
+
+.speech-bubble.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(0, 0) scale(1);
+  transition:
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0s;
+}
+
+.speech-bubble::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.96);
+  pointer-events: none;
+}
+
+.speech-bubble[data-placement="above"]::after {
+  left: var(--bubble-tail-x, 50%);
+  bottom: -5px;
+  transform: translateX(-50%) rotate(45deg);
+  border-right: 1.5px solid rgba(15, 23, 42, 0.16);
+  border-bottom: 1.5px solid rgba(15, 23, 42, 0.16);
+}
+
+.speech-bubble[data-placement="left"]::after {
+  right: -5px;
+  top: var(--bubble-tail-y, 50%);
+  transform: translateY(-50%) rotate(45deg);
+  border-top: 1.5px solid rgba(15, 23, 42, 0.16);
+  border-right: 1.5px solid rgba(15, 23, 42, 0.16);
+}
+
+.speech-bubble[data-placement="right"]::after {
+  left: -5px;
+  top: var(--bubble-tail-y, 50%);
+  transform: translateY(-50%) rotate(45deg);
+  border-bottom: 1.5px solid rgba(15, 23, 42, 0.16);
+  border-left: 1.5px solid rgba(15, 23, 42, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speech-bubble,
+  .speech-bubble[data-placement="left"],
+  .speech-bubble[data-placement="right"],
+  .speech-bubble.is-visible {
+    transform: none;
+    transition:
+      opacity 80ms linear,
+      visibility 0s linear 0s;
+  }
+}

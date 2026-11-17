@@ -127,4 +127,43 @@ describe("WindowPerchController", () => {
     expect(moveDeskumi).toHaveBeenCalledWith(375, 226);
     controller.dispose();
   });
+
+  it("coordinates minTopRoomPx via options and setMinTopRoomPx", async () => {
+    const queryActiveWindow = vi
+      .fn<() => Promise<[number, number, number, number] | null>>()
+      .mockResolvedValue([200, 300, 600, 500]);
+    const moveDeskumi = vi.fn().mockResolvedValue(undefined);
+    const onPerchStateChange = vi.fn();
+
+    const controller = new WindowPerchController({
+      intervalMs: 1000,
+      getDeskumiSize: () => ({ width: 250, height: 300 }),
+      minTopRoomPx: 320,
+      queryActiveWindow,
+      moveDeskumi,
+      onPerchStateChange
+    });
+
+    expect(controller.minTopRoomPx).toBe(320);
+    controller.setEnabled(true);
+    await vi.waitFor(() => expect(queryActiveWindow).toHaveBeenCalledTimes(1));
+    // target.y = 300 < 320 -> cannot perch yet
+    expect(controller.perched).toBe(false);
+    expect(moveDeskumi).not.toHaveBeenCalled();
+
+    // Lowering minTopRoomPx allows perching cleanly
+    controller.setMinTopRoomPx(24);
+    expect(controller.minTopRoomPx).toBe(24);
+    await controller.step();
+    expect(controller.perched).toBe(true);
+    expect(moveDeskumi).toHaveBeenCalledTimes(1);
+
+    // Raising minTopRoomPx again unperches cleanly
+    controller.setMinTopRoomPx(350);
+    await controller.step();
+    expect(controller.perched).toBe(false);
+    expect(onPerchStateChange).toHaveBeenLastCalledWith(false);
+
+    controller.dispose();
+  });
 });

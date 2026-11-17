@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                                                |
 | ------------- | ------------------------------------------------------------------------------------ |
-| Estado        | lista                                                                                |
-| Asignado      | —                                                                                    |
+| Estado        | en revisión                                                                          |
+| Asignado      | subagent-T-604                                                                       |
 | Fase          | F6                                                                                   |
 | Rama          | `feat/T-604-speech-bubble`                                                           |
 | Depende de    | T-602                                                                                |
@@ -41,11 +41,11 @@ Mostrar una burbuja de diálogo estilizada sobre el avatar cuando ejecuta `say` 
 
 ## Criterios de aceptación
 
-- [ ] La burbuja se muestra con `say` / `speak` con texto y desaparece limpiamente al finalizar, interrumpirse u ocultarse la ventana.
-- [ ] Posicionamiento automático dentro del viewport (arriba de `head` o lateral si no hay espacio superior) sin invocar `set_window_desktop_size`.
-- [ ] `pointer-events: none` y click-through intacto sobre las zonas transparentes bajo la burbuja.
-- [ ] Texto renderizado con `textContent` (protegido contra inyección HTML).
-- [ ] `npm run check` pasa con tests unitarios de layout y ciclo de vida.
+- [ ] La burbuja se muestra con `say` / `speak` con texto y desaparece limpiamente al finalizar, interrumpirse u ocultarse la ventana. _(API `show`/`hide`/`dispose` lista; conexión en `src/main.ts` diferida a Wave 3)_
+- [x] Posicionamiento automático dentro del viewport (arriba de `head` o lateral si no hay espacio superior) sin invocar `set_window_desktop_size`.
+- [x] `pointer-events: none` y click-through intacto sobre las zonas transparentes bajo la burbuja.
+- [x] Texto renderizado con `textContent` (protegido contra inyección HTML).
+- [x] `npm run check` pasa con tests unitarios de layout y ciclo de vida.
 
 ## Archivos esperados
 
@@ -64,4 +64,19 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué se hizo:**
+  - Funciones puras de layout/clamping en [`src/platform/speech-bubble-layout.ts`](../../src/platform/speech-bubble-layout.ts) (`calculateBubblePosition`, `computeTailOffset`) y re-exportadas desde [`src/platform/SpeechBubbleOverlay.ts`](../../src/platform/SpeechBubbleOverlay.ts).
+  - Clase [`SpeechBubbleOverlay`](../../src/platform/SpeechBubbleOverlay.ts) + `projectHeadToScreen` con `THREE.Vector3` preasignado a nivel de módulo (`_headWorldPos`), fallback limpio a `neck` o `vrm.scene` cuando no existe hueso `head`, renderizado exclusivo con `textContent` (cero `innerHTML`), `pointer-events: none`, `user-select: none` y cero llamadas a `set_window_desktop_size`.
+  - Estilos `.speech-bubble` en [`src/styles/app.css`](../../src/styles/app.css) con contraste alto sobre fondos claros/oscuros, `max-width` relativo al viewport, ajuste limpio de líneas, transición sutil de aparición/desaparición (y `prefers-reduced-motion`) y cola cómic orientada según `data-placement` (`above` | `left` | `right`).
+  - Coordinación de `minTopRoomPx` en [`src/platform/window-perch.ts`](../../src/platform/window-perch.ts) (`DEFAULT_MIN_TOP_ROOM_PX`, opciones `minTopRoomPx` / `getMinTopRoomPx`, y `setMinTopRoomPx`), manteniendo el comportamiento existente.
+  - Tests unitarios en [`src/platform/SpeechBubbleOverlay.test.ts`](../../src/platform/SpeechBubbleOverlay.test.ts) (11 tests) y [`src/platform/window-perch.test.ts`](../../src/platform/window-perch.test.ts) (+1 test, 7 totales).
+- **Decisiones tomadas:**
+  - Se separó la lógica matemática pura en `speech-bubble-layout.ts` (siguiendo el patrón de `input-region-math.ts`) para mantener cada archivo ≤ 300 líneas y permitir tests puros sin DOM/Three.
+  - `hide()` conserva el texto mientras corre la transición de opacidad (160 ms) y limpia completamente en `dispose()` o al recibir texto en blanco (`show("   ")`).
+  - `updateAnchor` omite lecturas/escrituras de DOM mientras la burbuja está oculta, pero guarda el último anclaje proyectado para que `show()` posicione al instante sin esperar al siguiente tick.
+- **Siguientes pasos (Wave 3):**
+  - Instanciar `SpeechBubbleOverlay` en `src/main.ts`, llamar `updateAnchor(ctx.vrm, sceneManager.camera, w, h)` dentro del loop y conectar `show`/`hide` a los eventos `speechStart`/`speechEnd` (y visibilidad de ventana).
+  - Realizar verificación visual interactiva con `npm run tauri dev` en modo normal y `perched`.
+- **Verificación / entorno:**
+  - `npm run check` (`tsc --noEmit`, `eslint .`, `prettier --check .`, `vitest run`: 23 archivos, 219 tests) en verde.
+  - `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` en Linux; sin ejecución GUI interactiva en sesión headless.
