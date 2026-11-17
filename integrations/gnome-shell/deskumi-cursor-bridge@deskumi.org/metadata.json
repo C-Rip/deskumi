@@ -1,0 +1,7 @@
+{
+  "uuid": "deskumi-cursor-bridge@deskumi.org",
+  "name": "Deskumi Cursor Bridge",
+  "description": "Reports global pointer coordinates and active window geometry to Deskumi over D-Bus (org.deskumi.CursorBridge) on GNOME Wayland.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}

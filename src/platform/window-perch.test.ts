@@ -59,12 +59,44 @@ describe("WindowPerchController", () => {
 
     controller.setEnabled(true);
     await vi.waitFor(() => expect(moveDeskumi).toHaveBeenCalledTimes(1));
-    expect(moveDeskumi).toHaveBeenCalledWith(375, 148);
+    expect(moveDeskumi).toHaveBeenCalledWith(375, 208);
     expect(onPerchStateChange).toHaveBeenCalledWith(true);
 
     // Same rect again -> should not move again
     await controller.step();
     expect(moveDeskumi).toHaveBeenCalledTimes(1);
+
+    // Focusing a different maximized/top-edge window that does NOT cover the
+    // perched titlebar (e.g. on another monitor) -> stays perched
+    queryActiveWindow.mockResolvedValueOnce([1400, 10, 1200, 800]);
+    await controller.step();
+    expect(controller.perched).toBe(true);
+    expect(moveDeskumi).toHaveBeenCalledTimes(1);
+
+    // Focusing a maximized window that covers the perched titlebar -> unperches
+    queryActiveWindow.mockResolvedValueOnce([0, 10, 1200, 800]);
+    await controller.step();
+    expect(controller.perched).toBe(false);
+    expect(onPerchStateChange).toHaveBeenLastCalledWith(false);
+
+    // Re-perch, then push the *same* perched window to the top edge -> unperches
+    queryActiveWindow.mockResolvedValueOnce([200, 400, 600, 500]);
+    await controller.step();
+    expect(controller.perched).toBe(true);
+    queryActiveWindow.mockResolvedValueOnce([200, 10, 600, 500]);
+    await controller.step();
+    expect(controller.perched).toBe(false);
+    expect(onPerchStateChange).toHaveBeenLastCalledWith(false);
+
+    // Re-perch on valid window, then manually drag Deskumi off -> unperches and stays off
+    queryActiveWindow.mockResolvedValueOnce([200, 400, 600, 500]);
+    await controller.step();
+    expect(controller.perched).toBe(true);
+    controller.notifyManualDrag();
+    expect(controller.perched).toBe(false);
+    queryActiveWindow.mockResolvedValueOnce([200, 400, 600, 500]);
+    await controller.step();
+    expect(controller.perched).toBe(false);
 
     // Active window closed / null -> should unperch immediately
     queryActiveWindow.mockResolvedValueOnce(null);
@@ -73,5 +105,26 @@ describe("WindowPerchController", () => {
 
     controller.dispose();
     expect(onPerchStateChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("uses dynamic getSeatOverlapPx when provided", async () => {
+    const queryActiveWindow = vi
+      .fn<() => Promise<[number, number, number, number] | null>>()
+      .mockResolvedValue([200, 400, 600, 500]);
+    const moveDeskumi = vi.fn().mockResolvedValue(undefined);
+
+    const controller = new WindowPerchController({
+      intervalMs: 1000,
+      getDeskumiSize: () => ({ width: 250, height: 300 }),
+      getSeatOverlapPx: (size) => Math.round(size.height * 0.42),
+      queryActiveWindow,
+      moveDeskumi
+    });
+
+    controller.setEnabled(true);
+    await vi.waitFor(() => expect(moveDeskumi).toHaveBeenCalledTimes(1));
+    // y = 400 - 300 + round(300 * 0.42) = 100 + 126 = 226
+    expect(moveDeskumi).toHaveBeenCalledWith(375, 226);
+    controller.dispose();
   });
 });

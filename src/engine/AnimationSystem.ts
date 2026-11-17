@@ -270,7 +270,7 @@ export class AnimationSystem implements System {
           this.baseHipsRotation.z +
           Math.sin(this.elapsedTime * this.swaySpeed) * this.swayAmplitude;
         this.hipsNode.position.y =
-          this.baseHipsPosition.y - 0.16 * this.sitBlend;
+          this.baseHipsPosition.y - 0.2 * this.sitBlend;
       }
 
       if (this.relaxArms) {

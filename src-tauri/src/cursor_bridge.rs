@@ -13,7 +13,6 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 const CURSOR_SAMPLE_TTL: Duration = Duration::from_secs(10);
-const WINDOW_SAMPLE_TTL: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Copy)]
 struct CursorSample {
@@ -29,7 +28,6 @@ struct ActiveWindowSample {
     width: f64,
     height: f64,
     deskumi_width: f64,
-    updated_at: Instant,
 }
 
 static LATEST_CURSOR: Mutex<Option<CursorSample>> = Mutex::new(None);
@@ -90,7 +88,6 @@ pub fn update_active_window(x: f64, y: f64, width: f64, height: f64, deskumi_wid
             width,
             height,
             deskumi_width,
-            updated_at: Instant::now(),
         });
     }
 }
@@ -134,11 +131,9 @@ pub fn scale_window_rect(
 }
 
 /// Returns the latest active window rectangle scaled to GTK coordinates.
+/// Remains valid until replaced or cleared via [`clear_active_window`].
 pub fn latest_active_window_rect(gdk_width: i32) -> Option<(i32, i32, i32, i32)> {
     let sample = LATEST_ACTIVE_WINDOW.lock().ok().and_then(|guard| *guard)?;
-    if sample.updated_at.elapsed() > WINDOW_SAMPLE_TTL {
-        return None;
-    }
     scale_window_rect(
         sample.x,
         sample.y,

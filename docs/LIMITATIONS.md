@@ -25,7 +25,7 @@ Cada entrada documenta:
   - Se conectó [`GlobalCursorLookAtSystem`](../src/platform/global-cursor.ts) haciendo polling a 15 Hz al comando IPC `get_window_cursor_position` ([`src-tauri/src/platform.rs`](../src-tauri/src/platform.rs)) únicamente cuando `caps.globalCursor === true` y solo actualizando `LookAtSystem` cuando la coordenada cambia (para no bloquear `idleTimeout`).
   - Se implementó el puente D-Bus [`org.deskumi.CursorBridge`](../src-tauri/src/cursor_bridge.rs) ([ADR-0005](adr/0005-wayland-global-cursor-bridge.md)): en **KDE Plasma Wayland** carga automáticamente un KWin Script (`/Scripting`) que reporta `workspace.cursorPos` normalizado respecto a la ventana `"Deskumi"`, resolviendo también el escalado fraccionario; `get_window_cursor_position` prioriza el puente D-Bus y hace fallback transparente a `gdk::Device::position()`.
 - **Pendiente por resolver:**
-  - En **GNOME Shell (Wayland)** se requiere una extensión opcional de GNOME Shell que invoque `org.deskumi.CursorBridge.ReportNormalizedCursor(relX, relY)` usando `global.get_pointer()`.
+  - En **GNOME Shell (Wayland)** ya se incluye la extensión compañera [`deskumi-cursor-bridge@deskumi.org`](../integrations/gnome-shell/deskumi-cursor-bridge@deskumi.org/extension.js) (empaquetada en `.deb`/`.rpm` bajo `/usr/share/gnome-shell/extensions/`), aunque por políticas de GNOME el usuario debe habilitarla una vez (`gnome-extensions enable deskumi-cursor-bridge@deskumi.org`).
 
 ---
 

@@ -6,6 +6,18 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-17
+
+### Added
+
+- **Extensión de GNOME Shell (`deskumi-cursor-bridge@deskumi.org`)**: Puente D-Bus para GNOME Shell 45–50 (Mutter / Wayland) en `integrations/gnome-shell/` que reporta cursor global y geometría de ventana activa a `org.deskumi.CursorBridge`, empaquetado automáticamente en `/usr/share/gnome-shell/extensions/` para paquetes `.deb` y `.rpm`.
+- **Alineación de sentado por hueso `hips`**: Proyección en pantalla del hueso `hips` (`getBoneScreenBottomFraction`) para posar al avatar sobre la barra de título con precisión independiente de la escala o anatomía del modelo VRM.
+
+### Fixed
+
+- **Estabilidad de _Window Perch_**: Se eliminó la expiración automática de 30 s (`WINDOW_SAMPLE_TTL`) de la ventana activa, se desmonta al detectar arrastre manual (`notifyManualDrag`), al empujar la ventana actual al borde superior o cuando una ventana maximizada cubre el punto de apoyo.
+- **Recorte al sentarse**: Se suavizó el encogimiento vertical del marco de `0.72` a `0.84` (mínimo `220 px`) y se ajustó la bajada de cadera (`0.20`) para evitar recortes en cabeza o coletas en marcos compactos.
+
 ## [0.2.0] - 2026-11-15
 
 ### Added

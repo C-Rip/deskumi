@@ -23,7 +23,7 @@ export function calculateWindowPerchPosition(
   options: { footOverlapPx?: number; minTopRoomPx?: number } = {}
 ): { x: number; y: number } | null {
   const footOverlapPx =
-    options.footOverlapPx ?? Math.round(deskumiSize.height * 0.16);
+    options.footOverlapPx ?? Math.round(deskumiSize.height * 0.36);
   const minTopRoomPx = options.minTopRoomPx ?? 24;
 
   if (
@@ -53,6 +53,7 @@ export function calculateWindowPerchPosition(
 export interface WindowPerchControllerOptions {
   intervalMs?: number;
   getDeskumiSize?: () => WindowSize;
+  getSeatOverlapPx?: (deskumiSize: WindowSize) => number | null;
   queryActiveWindow?: () => Promise<[number, number, number, number] | null>;
   moveDeskumi?: (x: number, y: number) => Promise<void>;
   onPerchStateChange?: (isPerched: boolean) => void;
@@ -65,6 +66,9 @@ export interface WindowPerchControllerOptions {
 export class WindowPerchController {
   private readonly intervalMs: number;
   private readonly getDeskumiSize: () => WindowSize;
+  private readonly getSeatOverlapPx?: (
+    deskumiSize: WindowSize
+  ) => number | null;
   private readonly queryActiveWindow: () => Promise<
     [number, number, number, number] | null
   >;
@@ -77,6 +81,8 @@ export class WindowPerchController {
   private isInFlight = false;
   private lastX: number | null = null;
   private lastY: number | null = null;
+  private lastTargetRect: [number, number, number, number] | null = null;
+  private suppressedRect: [number, number, number, number] | null = null;
 
   constructor(options: WindowPerchControllerOptions = {}) {
     this.intervalMs = Math.max(16, options.intervalMs ?? 25);
@@ -86,6 +92,7 @@ export class WindowPerchController {
         width: typeof window !== "undefined" ? window.innerWidth : 400,
         height: typeof window !== "undefined" ? window.innerHeight : 600
       }));
+    this.getSeatOverlapPx = options.getSeatOverlapPx;
     this.queryActiveWindow = options.queryActiveWindow ?? getActiveWindowRect;
     this.moveDeskumi = options.moveDeskumi ?? setWindowDesktopPosition;
     this.onPerchStateChange = options.onPerchStateChange;
@@ -97,9 +104,22 @@ export class WindowPerchController {
       if (!perched) {
         this.lastX = null;
         this.lastY = null;
+        this.lastTargetRect = null;
       }
       this.onPerchStateChange?.(perched);
     }
+  }
+
+  /**
+   * Called when the user manually drags Deskumi away from a window.
+   * Un-perches immediately and suppresses re-attaching to the current window
+   * until the user focuses or moves another window.
+   */
+  public notifyManualDrag(): void {
+    if (this.lastTargetRect) {
+      this.suppressedRect = [...this.lastTargetRect];
+    }
+    this.setPerched(false);
   }
 
   public setEnabled(enabled: boolean): void {
@@ -131,28 +151,64 @@ export class WindowPerchController {
       const rect = await this.queryActiveWindow();
       if (!this.isEnabled) return;
       if (!rect) {
+        this.suppressedRect = null;
         this.setPerched(false);
         return;
       }
 
+      if (this.suppressedRect) {
+        const [sx, sy, sw, sh] = this.suppressedRect;
+        if (
+          Math.abs(rect[0] - sx) < 4 &&
+          Math.abs(rect[1] - sy) < 4 &&
+          Math.abs(rect[2] - sw) < 4 &&
+          Math.abs(rect[3] - sh) < 4
+        ) {
+          return;
+        }
+        this.suppressedRect = null;
+      }
+
       const [x, y, width, height] = rect;
+      const deskumiSize = this.getDeskumiSize();
+      const seatOverlap = this.getSeatOverlapPx?.(deskumiSize) ?? undefined;
       let pos = calculateWindowPerchPosition(
         { x, y, width, height },
-        this.getDeskumiSize()
+        deskumiSize,
+        seatOverlap !== undefined ? { footOverlapPx: seatOverlap } : undefined
       );
       if (!pos) {
-        this.setPerched(false);
+        if (this.isPerched && this.lastTargetRect) {
+          const [lx, ly, lw] = this.lastTargetRect;
+          const isSameWindowMovedUp =
+            Math.abs(x - lx) < 80 && Math.abs(width - lw) < 80;
+          const seatX = lx + lw / 2;
+          const isPerchCoveredByFocusedWindow =
+            seatX >= x && seatX <= x + width && ly >= y && ly <= y + height;
+
+          if (isSameWindowMovedUp || isPerchCoveredByFocusedWindow) {
+            this.setPerched(false);
+          }
+        }
         return;
       }
+
+      this.lastTargetRect = [x, y, width, height];
 
       const wasPerched = this.isPerched;
       this.setPerched(true);
       if (!wasPerched) {
         // Recompute once in case onPerchStateChange resized the compact sitting frame.
+        const updatedSize = this.getDeskumiSize();
+        const updatedOverlap =
+          this.getSeatOverlapPx?.(updatedSize) ?? undefined;
         pos =
           calculateWindowPerchPosition(
             { x, y, width, height },
-            this.getDeskumiSize()
+            updatedSize,
+            updatedOverlap !== undefined
+              ? { footOverlapPx: updatedOverlap }
+              : undefined
           ) ?? pos;
       }
 

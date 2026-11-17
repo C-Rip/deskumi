@@ -1,5 +1,8 @@
 import sampleAvatarUrl from "../assets/avatars/VRM1_Constraint_Twist_Sample.vrm";
-import { calcCenteredAvatarY } from "./engine/AvatarLoader";
+import {
+  calcCenteredAvatarY,
+  getBoneScreenBottomFraction
+} from "./engine/AvatarLoader";
 import { SceneManager } from "./engine/SceneManager";
 import { PowerSaveController } from "./engine/PowerSaveController";
 import { getPlatformCaps } from "./platform/caps";
@@ -59,6 +62,7 @@ setupWindowDrag({
   },
   onDragStart: () => {
     isDragging = true;
+    windowPerchController.notifyManualDrag();
   }
 });
 
@@ -168,7 +172,7 @@ function getEffectiveFrameSize(perched: boolean): {
   return {
     width: configuredFrameSize.width,
     height: perched
-      ? Math.max(180, Math.round(configuredFrameSize.height * 0.72))
+      ? Math.max(220, Math.round(configuredFrameSize.height * 0.84))
       : configuredFrameSize.height
   };
 }
@@ -179,6 +183,15 @@ export const windowPerchController = new WindowPerchController({
       width: window.innerWidth,
       height: window.innerHeight
     },
+  getSeatOverlapPx: (deskumiSize) => {
+    if (!currentAvatarContext) return null;
+    const fraction = getBoneScreenBottomFraction(
+      currentAvatarContext.vrm,
+      sceneManager.camera,
+      "hips"
+    );
+    return fraction !== null ? Math.round(deskumiSize.height * fraction) : null;
+  },
   onPerchStateChange: (perched) => {
     currentAvatarContext?.animationSystem.setSitting(perched);
     const target = getEffectiveFrameSize(perched);

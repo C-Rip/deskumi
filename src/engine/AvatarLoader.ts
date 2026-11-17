@@ -1,6 +1,11 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { VRMLoaderPlugin, VRMUtils, type VRM } from "@pixiv/three-vrm";
+import {
+  VRMLoaderPlugin,
+  VRMUtils,
+  type VRM,
+  type VRMHumanBoneName
+} from "@pixiv/three-vrm";
 import type { VRMLoaderPluginOptions } from "@pixiv/three-vrm";
 
 /**
@@ -304,6 +309,32 @@ export function disposeObject(object: THREE.Object3D): void {
     object.parent.remove(object);
   }
   VRMUtils.deepDispose(object);
+}
+
+/**
+ * Projects a VRM humanoid bone (default: `hips`) through `camera` to compute
+ * its normalized vertical distance from the bottom edge of the viewport (`0..1`).
+ * Used to align the avatar's seat precisely atop window titlebars regardless
+ * of avatar scale, frame dimensions, or model anatomy.
+ */
+export function getBoneScreenBottomFraction(
+  vrm: VRM,
+  camera: THREE.Camera,
+  boneName: VRMHumanBoneName = "hips",
+  localYOffset = -0.52
+): number | null {
+  const node = vrm.humanoid?.getNormalizedBoneNode(boneName);
+  if (!node) return null;
+
+  node.updateWorldMatrix(true, false);
+  const worldPos = new THREE.Vector3();
+  node.getWorldPosition(worldPos);
+  worldPos.y += localYOffset * (vrm.scene.scale.y || 1);
+  worldPos.project(camera);
+
+  if (!Number.isFinite(worldPos.y)) return null;
+  const fractionFromBottom = (worldPos.y + 1) * 0.5;
+  return Math.max(0.05, Math.min(0.75, fractionFromBottom));
 }
 
 /**

@@ -314,3 +314,30 @@ describe("loadVRM validation and pipeline", () => {
     loadSpy.mockRestore();
   });
 });
+
+describe("getBoneScreenBottomFraction", () => {
+  it("projects the hips bone into normalized bottom-up screen fraction", async () => {
+    const { getBoneScreenBottomFraction } = await import("./AvatarLoader");
+    const scene = new THREE.Group();
+    const hips = new THREE.Object3D();
+    hips.position.set(0, 0.8, 0);
+    scene.add(hips);
+    scene.updateMatrixWorld(true);
+
+    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    camera.position.set(0, 0.8, 3);
+    camera.lookAt(0, 0.8, 0);
+    camera.updateMatrixWorld(true);
+    camera.updateProjectionMatrix();
+
+    const mockVRM = {
+      scene,
+      humanoid: {
+        getNormalizedBoneNode: (name: string) => (name === "hips" ? hips : null)
+      }
+    } as unknown as VRM;
+
+    const fraction = getBoneScreenBottomFraction(mockVRM, camera, "hips", 0);
+    expect(fraction).toBeCloseTo(0.5, 2);
+  });
+});
