@@ -97,7 +97,7 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | ID    | Tarea                                                                                           | Depende de   | Paralelo                | Estado |
 | ----- | ----------------------------------------------------------------------------------------------- | ------------ | ----------------------- | ------ |
 | T-600 | **Spike**: protocolo `plugin://` + CSP, `Channel` binario, `AudioContext`, delta WS → ADR-0006  | —            | con T-601               | ✅     |
-| T-601 | Refactor puro: dividir `src/main.ts` y `src/settings/SettingsPanel.ts` (< 300 líneas/archivo)   | —            | con T-600               | 🟦     |
+| T-601 | Refactor puro: dividir `src/main.ts` y `src/settings/SettingsPanel.ts` (< 300 líneas/archivo)   | —            | con T-600               | ✅     |
 | T-602 | Contrato `AvatarCommand`/`AvatarEvent` + `AvatarController` + wake locks en `PowerSave`         | T-600, T-601 | —                       | 🟦     |
 | T-603 | Habla y _lip-sync_: `AudioOutput` + `LipSyncController` + `SpeechController`                    | T-602        | con T-604, T-605, T-606 | 🟦     |
 | T-604 | `SpeechBubbleOverlay` (`pointer-events: none`, anclado a `head`, sin resize GTK en vivo)        | T-602        | con T-603, T-605, T-606 | 🟦     |

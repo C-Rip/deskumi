@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                    |
 | ------------- | ---------------------------------------- |
-| Estado        | en revisión                              |
+| Estado        | hecha                                    |
 | Asignado      | Frontend Refactor Engineer               |
 | Fase          | F6                                       |
 | Rama          | `refactor/T-601-split-main-and-settings` |
