@@ -18,6 +18,7 @@ import {
 import { MAX_ACTIVE_PLUGINS, PluginHost } from "./plugins/PluginHost";
 import type { PluginMountConfig } from "./plugins/PluginHostTypes";
 import { RegisteredAnimationResolver } from "./plugins/RegisteredAnimationResolver";
+import { syncRegisteredAnimations } from "./plugins/sync-animations";
 import { SpeechBubbleOverlay } from "./SpeechBubbleOverlay";
 import {
   DEFAULT_BRIDGE_SCOPES,
@@ -25,12 +26,14 @@ import {
   type AppConfig,
   type RegisteredAnimationConfig
 } from "./store-schema";
+import { WindowFocusBridge } from "./window-focus-bridge";
 
 export interface RuntimeIntegrations {
   speechBubble: SpeechBubbleOverlay;
   animationResolver: RegisteredAnimationResolver;
   bridgeClient: BridgeClient;
   pluginHost: PluginHost;
+  windowFocusBridge: WindowFocusBridge;
   syncConfig: (config: AppConfig) => Promise<void>;
   dispose: () => void;
 }
@@ -60,10 +63,7 @@ export interface SetupRuntimeIntegrationsOptions {
   speechBubble?: SpeechBubbleOverlay;
   bridgeClient?: BridgeClient;
   pluginHost?: PluginHost;
-}
-
-function animSignature(anim: RegisteredAnimationConfig): string {
-  return JSON.stringify([anim.path, anim.label ?? null]);
+  windowFocusBridge?: WindowFocusBridge;
 }
 
 /**
@@ -127,6 +127,12 @@ export function setupRuntimeIntegrations(
       avatarController,
       animationResolver
     });
+  const windowFocusBridge =
+    options.windowFocusBridge ??
+    new WindowFocusBridge({
+      avatarController,
+      grantedScopes: toValidAvatarScopes(DEFAULT_BRIDGE_SCOPES)
+    });
 
   let cachedCapsPromise: Promise<PlatformCaps> | null = null;
   let bridgeRunning = false;
@@ -143,45 +149,15 @@ export function setupRuntimeIntegrations(
     return cachedCapsPromise;
   };
 
-  const syncAnimations = async (
+  const syncAnimations = (
     items: readonly RegisteredAnimationConfig[]
-  ): Promise<void> => {
-    const existing = await runtimeDeps.listRegisteredAnimations();
-    const existingUserIds = new Set(
-      existing.filter((a) => a.source === "user").map((a) => a.id)
+  ): Promise<void> =>
+    syncRegisteredAnimations(
+      items,
+      syncedAnimations,
+      animationResolver,
+      runtimeDeps
     );
-    const desiredIds = new Set(items.map((a) => a.id));
-
-    for (const userId of existingUserIds) {
-      if (!desiredIds.has(userId)) {
-        await runtimeDeps.unregisterAnimation(userId);
-        syncedAnimations.delete(userId);
-        animationResolver.invalidate(userId);
-      }
-    }
-
-    for (const anim of items) {
-      const sig = animSignature(anim);
-      if (
-        syncedAnimations.get(anim.id) === sig &&
-        existingUserIds.has(anim.id)
-      ) {
-        continue;
-      }
-      try {
-        await runtimeDeps.registerAnimation(anim.id, anim.path, anim.label);
-        syncedAnimations.set(anim.id, sig);
-        animationResolver.invalidate(anim.id);
-      } catch (err: unknown) {
-        console.warn(
-          `[deskumi] Failed to register animation '${anim.id}':`,
-          err
-        );
-      }
-    }
-
-    await animationResolver.refresh();
-  };
 
   const applyConfig = async (config: AppConfig): Promise<void> => {
     if (disposed) return;
@@ -223,6 +199,10 @@ export function setupRuntimeIntegrations(
       }
     }
 
+    const effectiveFocusScopes = new Set<string>(
+      config.bridgeEnabled && caps.localBridge ? config.bridgeScopes : []
+    );
+
     if (caps.plugins) {
       if (config.enabledPlugins.length === 0) {
         pluginHost.syncPlugins([]);
@@ -236,9 +216,13 @@ export function setupRuntimeIntegrations(
             if (mountConfigs.length >= MAX_ACTIVE_PLUGINS) break;
             const plugin = byId.get(pluginId);
             if (!plugin) continue;
+            const grantedPermissions = config.pluginPermissions[pluginId] ?? [];
+            for (const perm of grantedPermissions) {
+              effectiveFocusScopes.add(perm);
+            }
             mountConfigs.push({
               plugin,
-              grantedPermissions: config.pluginPermissions[pluginId] ?? []
+              grantedPermissions
             });
           }
           pluginHost.syncPlugins(mountConfigs);
@@ -248,6 +232,13 @@ export function setupRuntimeIntegrations(
       }
     } else {
       pluginHost.syncPlugins([]);
+    }
+
+    try {
+      await windowFocusBridge.start();
+      await windowFocusBridge.setGrantedScopes(effectiveFocusScopes);
+    } catch (err: unknown) {
+      console.warn("[deskumi] Failed to sync window focus metadata:", err);
     }
 
     hasSyncedOnce = true;
@@ -275,6 +266,7 @@ export function setupRuntimeIntegrations(
     animationResolver,
     bridgeClient,
     pluginHost,
+    windowFocusBridge,
     syncConfig,
     dispose: () => {
       disposed = true;
@@ -282,6 +274,7 @@ export function setupRuntimeIntegrations(
       speechBubble.dispose();
       bridgeClient.dispose();
       pluginHost.dispose();
+      windowFocusBridge.dispose();
     }
   };
   state.runtimeIntegrations = integrations;

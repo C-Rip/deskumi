@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                                                          |
 | ------------- | ------------------------------------------------------------------------------ |
-| Estado        | en revisión                                                                    |
+| Estado        | hecha                                                                          |
 | Asignado      | T-609 WindowFocus Bridge Engineer                                              |
 | Fase          | F6                                                                             |
 | Rama          | `feat/T-609-cursor-bridge-window-focus`                                        |

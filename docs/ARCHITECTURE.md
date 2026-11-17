@@ -76,39 +76,42 @@ actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 
 ### Comandos (`invoke` JS→Rust)
 
-| Comando                           | Payload                                                                           | Respuesta                                  | Módulo Rust          |
-| --------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
-| `get_platform_caps`               | —                                                                                 | `PlatformCaps`                             | `platform.rs`        |
-| `set_input_region`                | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`                                       | `input_region.rs`    |
-| `set_window_desktop_size`         | `{ width: number, height: number }` (px lógicos)                                  | `()`                                       | `platform.rs`        |
-| `set_window_desktop_position`     | `{ x: number, y: number }` (px de escritorio)                                     | `()`                                       | `platform.rs`        |
-| `get_window_cursor_position`      | —                                                                                 | `[number, number] \| null`                 | `platform.rs`        |
-| `get_active_window_rect`          | —                                                                                 | `[number, number, number, number] \| null` | `platform.rs`        |
-| `open_settings_window`            | —                                                                                 | `()`                                       | `settings_window.rs` |
-| `start_local_bridge`              | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `stop_local_bridge`               | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `get_bridge_status`               | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `regenerate_bridge_token`         | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `subscribe_bridge_inbound`        | `{ channel: Channel<BridgeInboundPayload> }` (`InvokeResponseBody::Raw \| Json`)  | `()`                                       | `local_bridge.rs`    |
-| `send_bridge_event`               | `{ message: BridgeOutboundMessage }`                                              | `()`                                       | `local_bridge.rs`    |
-| `list_plugins`                    | —                                                                                 | `PluginInfo[]`                             | `plugins.rs`         |
-| `list_registered_animations`      | —                                                                                 | `RegisteredAnimation[]`                    | `plugins.rs`         |
-| `register_animation`              | `{ id: string, path: string, label?: string \| null }`                            | `RegisteredAnimation`                      | `plugins.rs`         |
-| `unregister_animation`            | `{ id: string }`                                                                  | `boolean`                                  | `plugins.rs`         |
-| `read_registered_animation_bytes` | `{ id: string }`                                                                  | `ArrayBuffer` (binario `.vrma`)            | `plugins.rs`         |
+| Comando                           | Payload                                                                           | Respuesta                                    | Módulo Rust          |
+| --------------------------------- | --------------------------------------------------------------------------------- | -------------------------------------------- | -------------------- |
+| `get_platform_caps`               | —                                                                                 | `PlatformCaps`                               | `platform.rs`        |
+| `set_input_region`                | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`                                         | `input_region.rs`    |
+| `set_window_desktop_size`         | `{ width: number, height: number }` (px lógicos)                                  | `()`                                         | `platform.rs`        |
+| `set_window_desktop_position`     | `{ x: number, y: number }` (px de escritorio)                                     | `()`                                         | `platform.rs`        |
+| `get_window_cursor_position`      | —                                                                                 | `[number, number] \| null`                   | `platform.rs`        |
+| `get_active_window_rect`          | —                                                                                 | `[number, number, number, number] \| null`   | `platform.rs`        |
+| `set_focus_metadata_mode`         | `{ mode: 0 \| 1 \| 2 }`                                                           | `()`                                         | `cursor_bridge.rs`   |
+| `get_window_focus_metadata`       | —                                                                                 | `{ appId?: string, title?: string } \| null` | `cursor_bridge.rs`   |
+| `open_settings_window`            | —                                                                                 | `()`                                         | `settings_window.rs` |
+| `start_local_bridge`              | —                                                                                 | `BridgeStatus`                               | `local_bridge.rs`    |
+| `stop_local_bridge`               | —                                                                                 | `BridgeStatus`                               | `local_bridge.rs`    |
+| `get_bridge_status`               | —                                                                                 | `BridgeStatus`                               | `local_bridge.rs`    |
+| `regenerate_bridge_token`         | —                                                                                 | `BridgeStatus`                               | `local_bridge.rs`    |
+| `subscribe_bridge_inbound`        | `{ channel: Channel<BridgeInboundPayload> }` (`InvokeResponseBody::Raw \| Json`)  | `()`                                         | `local_bridge.rs`    |
+| `send_bridge_event`               | `{ message: BridgeOutboundMessage }`                                              | `()`                                         | `local_bridge.rs`    |
+| `list_plugins`                    | —                                                                                 | `PluginInfo[]`                               | `plugins.rs`         |
+| `list_registered_animations`      | —                                                                                 | `RegisteredAnimation[]`                      | `plugins.rs`         |
+| `register_animation`              | `{ id: string, path: string, label?: string \| null }`                            | `RegisteredAnimation`                        | `plugins.rs`         |
+| `unregister_animation`            | `{ id: string }`                                                                  | `boolean`                                    | `plugins.rs`         |
+| `read_registered_animation_bytes` | `{ id: string }`                                                                  | `ArrayBuffer` (binario `.vrma`)              | `plugins.rs`         |
 
 ### Eventos (Tauri `emit` / `listen`)
 
-| Dirección | Evento                       | Payload     | Origen / Uso                                           |
-| --------- | ---------------------------- | ----------- | ------------------------------------------------------ |
-| Rust→JS   | `tray-request-load-avatar`   | `()`        | Menú del tray: abrir selector `.vrm`                   |
-| Rust→JS   | `tray-request-clear-avatar`  | `()`        | Menú del tray: quitar avatar                           |
-| Rust→JS   | `tray-request-load-vrma`     | `()`        | Menú del tray: abrir selector `.vrma`                  |
-| Rust→JS   | `tray-request-stop-vrma`     | `()`        | Menú del tray: detener animación `.vrma`               |
-| Rust→JS   | `tray-autostart-changed`     | `boolean`   | Menú del tray: sincronizar autostart en store          |
-| Rust→JS   | `tray-visibility-changed`    | `boolean`   | Menú del tray: mostrar/ocultar (`PowerSaveController`) |
-| Rust→JS   | `settings-window-visibility` | `boolean`   | `settings_window.rs`: estado de ventana Ajustes        |
-| JS↔JS     | `settings-updated`           | `AppConfig` | `SettingsPanel` → `main.ts`: cambios en vivo           |
+| Dirección | Evento                       | Payload               | Origen / Uso                                           |
+| --------- | ---------------------------- | --------------------- | ------------------------------------------------------ |
+| Rust→JS   | `tray-request-load-avatar`   | `()`                  | Menú del tray: abrir selector `.vrm`                   |
+| Rust→JS   | `tray-request-clear-avatar`  | `()`                  | Menú del tray: quitar avatar                           |
+| Rust→JS   | `tray-request-load-vrma`     | `()`                  | Menú del tray: abrir selector `.vrma`                  |
+| Rust→JS   | `tray-request-stop-vrma`     | `()`                  | Menú del tray: detener animación `.vrma`               |
+| Rust→JS   | `tray-autostart-changed`     | `boolean`             | Menú del tray: sincronizar autostart en store          |
+| Rust→JS   | `tray-visibility-changed`    | `boolean`             | Menú del tray: mostrar/ocultar (`PowerSaveController`) |
+| Rust→JS   | `cursor-bridge-window-focus` | `WindowFocusMetadata` | `cursor_bridge.rs`: cambio de ventana activa (`T-609`) |
+| Rust→JS   | `settings-window-visibility` | `boolean`             | `settings_window.rs`: estado de ventana Ajustes        |
+| JS↔JS     | `settings-updated`           | `AppConfig`           | `SettingsPanel` → `main.ts`: cambios en vivo           |
 
 ```ts
 type PlatformCaps = {

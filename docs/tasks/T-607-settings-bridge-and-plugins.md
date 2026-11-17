@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| Estado        | en revisión                                                       |
+| Estado        | hecha                                                             |
 | Asignado      | subagent-T-607                                                    |
 | Fase          | F6                                                                |
 | Rama          | `feat/T-607-settings-bridge-and-plugins`                          |
