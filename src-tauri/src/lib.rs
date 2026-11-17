@@ -27,6 +27,7 @@ pub fn run() {
         })
         .setup(|app| {
             tray::create_tray(app.handle())?;
+            cursor_bridge::attach_app_handle(app.handle().clone());
             cursor_bridge::init();
             Ok(())
         })
@@ -36,6 +37,8 @@ pub fn run() {
             platform::set_window_desktop_size,
             platform::get_window_cursor_position,
             platform::get_active_window_rect,
+            cursor_bridge::set_focus_metadata_mode,
+            cursor_bridge::get_window_focus_metadata,
             input_region::set_input_region,
             settings_window::open_settings_window,
             local_bridge::start_local_bridge,
