@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
-| Estado        | lista                                                                    |
-| Asignado      | —                                                                        |
+| Estado        | en revisión                                                              |
+| Asignado      | subagent-T-603                                                           |
 | Fase          | F6                                                                       |
 | Rama          | `feat/T-603-speech-and-lipsync`                                          |
 | Depende de    | T-602                                                                    |
@@ -48,11 +48,11 @@ Implementar el subsistema de audio (`AudioOutput`), sincronización labial basad
 
 ## Criterios de aceptación
 
-- [ ] `AudioOutput` crea `AudioContext` de forma perezosa, ejecuta `resume()` en frío sin gesto de usuario, reproduce PCM a 22050/44100/48000 Hz y llama `suspend()` tras inactividad.
-- [ ] `LipSyncController` sincroniza visemas por `AudioContext.currentTime` y usa RMS sobre PCM como fallback determinista cuando no hay pista de visemas.
-- [ ] `SpeechController` respeta máx. 8 ítems en cola, máx. 10 MB por stream, timeout de stream de 5 s y propiedad de `streamId` por dueño.
-- [ ] Ningún camino de error, `speakCancel`, `timeout`, `hidden` o desconexión deja _wake locks_ activos en `PowerSaveController`.
-- [ ] `npm run check` pasa limpio sin importar `@tauri-apps/*` desde `src/engine/**`.
+- [x] `AudioOutput` crea `AudioContext` de forma perezosa, ejecuta `resume()` en frío sin gesto de usuario, reproduce PCM a 22050/44100/48000 Hz y llama `suspend()` tras inactividad.
+- [x] `LipSyncController` sincroniza visemas por `AudioContext.currentTime` y usa RMS sobre PCM como fallback determinista cuando no hay pista de visemas.
+- [x] `SpeechController` respeta máx. 8 ítems en cola, máx. 10 MB por stream, timeout de stream de 5 s y propiedad de `streamId` por dueño.
+- [x] Ningún camino de error, `speakCancel`, `timeout`, `hidden` o desconexión deja _wake locks_ activos en `PowerSaveController`.
+- [x] `npm run check` pasa limpio sin importar `@tauri-apps/*` desde `src/engine/**`.
 
 ## Archivos esperados
 
@@ -74,4 +74,16 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué se hizo:**
+  - `AudioOutput` ([`src/engine/AudioOutput.ts`](../../src/engine/AudioOutput.ts), [`AudioOutputTypes.ts`](../../src/engine/AudioOutputTypes.ts), [`AudioBufferSchedule.ts`](../../src/engine/AudioBufferSchedule.ts), [`PcmDecoder.ts`](../../src/engine/PcmDecoder.ts)): creación perezosa de `AudioContext` vía factory inyectable, `await ctx.resume()` en frío, decodificación base64 (`decodeAudioData`), streaming PCM (`pcm_s16le` / `pcm_f32le`, 8000–48000 Hz, mono/estéreo) con pre-buffer de 120 ms y reloj acumulado, manejo limpio de _underrun_ (silencio + cierre de boca + reanudación sin solapes) y auto-`suspend()` tras 4 s de inactividad.
+  - `LipSyncController` ([`src/engine/LipSyncController.ts`](../../src/engine/LipSyncController.ts), [`LipSyncTypes.ts`](../../src/engine/LipSyncTypes.ts)): evaluación sincronizada contra `AudioOutput.currentTime` (sin acumular `dt` ni asignar memoria en `update()`), tiempos `t` relativos por chunk, `"neutral"` como boca cerrada sin escribir `"neutral"`, y fallback determinista por RMS sobre PCM sin `AnalyserNode`.
+  - `SpeechController` ([`src/engine/SpeechController.ts`](../../src/engine/SpeechController.ts), [`SpeechTypes.ts`](../../src/engine/SpeechTypes.ts), [`SpeechSpeakHelper.ts`](../../src/engine/SpeechSpeakHelper.ts), [`SpeechStreamHelper.ts`](../../src/engine/SpeechStreamHelper.ts), [`SpeechCommandBuilders.ts`](../../src/engine/SpeechCommandBuilders.ts), [`SpeechStreamCommands.ts`](../../src/engine/SpeechStreamCommands.ts), [`SpeechQueueRuntime.ts`](../../src/engine/SpeechQueueRuntime.ts)): cola unificada (`say`, `speak`, `speakStart`/`Chunk`/`End`/`Cancel`, `stopSpeaking`) con políticas `queue`/`interrupt`/`drop`, límites ADR-0006 (máx. 8 en cola, máx. 10 MB por stream, timeout 5 s, aislamiento de `streamId` por dueño, cancelación inmediata al ocultar ventana con `reason: "hidden"`), emisión de `speechStart`/`speechEnd`, callbacks de burbuja (`onBubbleChange` / `getActiveBubble`) para `T-604`, y liberación garantizada de _wake locks_ en `PowerSaveController` en todos los caminos normales, cancelación, timeout, ocultamiento y error.
+  - Integración en [`src/engine/AvatarMouthChannel.ts`](../../src/engine/AvatarMouthChannel.ts), [`src/engine/AvatarController.ts`](../../src/engine/AvatarController.ts), [`AvatarControllerTypes.ts`](../../src/engine/AvatarControllerTypes.ts) y [`AvatarControllerDispatch.ts`](../../src/engine/AvatarControllerDispatch.ts), manteniendo todos los archivos de implementación `<= 300` líneas.
+  - Tests unitarios deterministas: [`src/engine/AudioOutput.test.ts`](../../src/engine/AudioOutput.test.ts), [`src/engine/LipSyncController.test.ts`](../../src/engine/LipSyncController.test.ts), [`src/engine/SpeechController.test.ts`](../../src/engine/SpeechController.test.ts) y ampliación de [`src/engine/AvatarController.test.ts`](../../src/engine/AvatarController.test.ts).
+- **Decisiones tomadas:**
+  - `AvatarMouthChannel` delega en `SpeechController` preservando las utilidades de override manual (`setMouthVisemes` / `clearMouthVisemes` / `setMouthActive`) y el comportamiento sin WebAudio para `say` o `speak` silenciosos sin crear `AudioContext` innecesariamente.
+  - `src/main.ts` no se modificó por indicación explícita de integración en Wave 3 (`AvatarController` ya instancia `AudioOutput`, `LipSyncController` y `SpeechController` por defecto y acepta inyección opcional en `AvatarControllerOptions`).
+- **Siguiente paso:**
+  - En Wave 3 (`src/main.ts`), conectar `avatarController.onSpeechBubbleChange(...)` / `avatarController.speech` con `SpeechBubbleOverlay` (`T-604`) y el puente/plugins (`T-605`, `T-606`).
+- **Entorno / Verificación:**
+  - Verificado en Linux (worktree headless): `npx prettier --write`, `npm run check` (`tsc --noEmit`, `eslint .`, `prettier --check .`, `vitest run`) y `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test` en `src-tauri/`. No se ejecutó prueba interactiva GUI (`npm run tauri dev`) desde el subagente headless.

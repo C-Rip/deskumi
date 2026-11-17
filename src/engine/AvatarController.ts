@@ -1,15 +1,11 @@
 import type { VRM } from "@pixiv/three-vrm";
-import type { VRMAnimation } from "@pixiv/three-vrm-animation";
 import type { AnimationSystem } from "./AnimationSystem";
-import { AvatarAuxChannels } from "./AvatarAuxChannels";
+import type { AudioOutput } from "./AudioOutput";
+import type { AvatarAuxChannels } from "./AvatarAuxChannels";
 import type { AvatarChannel } from "./AvatarChannels";
 import { classifyClickRegion } from "./AvatarClickRegion";
 import {
-  buildAckResponse,
-  buildErrorResponse,
   buildHelloResponse,
-  validateAvatarCommand,
-  type AvatarCommand,
   type AvatarCommandLimits,
   type AvatarEvent,
   type AvatarEventType,
@@ -19,45 +15,39 @@ import {
   type MouthVisemeName,
   type SpeechEndReason
 } from "./AvatarCommand";
-import { AvatarMouthChannel } from "./AvatarMouthChannel";
-import { AvatarPoseChannel } from "./AvatarPoseChannel";
+import {
+  createAvatarChannels,
+  validateAndDispatchAvatarCommand
+} from "./AvatarControllerDispatch";
+import type {
+  AvatarControllerAvatar,
+  AvatarControllerOptions,
+  DispatchOptions
+} from "./AvatarControllerTypes";
+import type { AvatarMouthChannel } from "./AvatarMouthChannel";
+import type { AvatarPoseChannel } from "./AvatarPoseChannel";
 import {
   ExpressionComposer,
   type EmotionExpressionInput
 } from "./ExpressionComposer";
-import type { LookAtSystem } from "./LookAtSystem";
+import type { LipSyncController } from "./LipSyncController";
 import type { PowerSaveController, UnlistenFn } from "./PowerSaveController";
 import type { ReactionSystem } from "./ReactionSystem";
+import type {
+  SpeechBubbleListener,
+  SpeechBubbleState,
+  SpeechController
+} from "./SpeechController";
 import type { System } from "./types";
 
 export { classifyClickRegion };
-
-export interface AvatarControllerAvatar {
-  vrm: VRM;
-  animationSystem?: AnimationSystem;
-  reactionSystem?: ReactionSystem;
-  lookAtSystem?: LookAtSystem;
-}
-
-export interface AvatarControllerOptions {
-  powerSaveController: PowerSaveController;
-  vrm?: VRM;
-  animationSystem?: AnimationSystem;
-  reactionSystem?: ReactionSystem;
-  lookAtSystem?: LookAtSystem;
-  limits?: Partial<AvatarCommandLimits>;
-  resolveAnimation?: (
-    vrmaId: string
-  ) => Promise<VRMAnimation | null> | VRMAnimation | null;
-  getAvailableAnimations?: () => readonly string[];
-  maxQueueSize?: number;
-  streamTimeoutMs?: number;
-}
-
-export interface DispatchOptions {
-  ownerId?: string;
-  grantedScopes?: readonly string[];
-}
+export type {
+  AvatarControllerAvatar,
+  AvatarControllerOptions,
+  DispatchOptions,
+  SpeechBubbleListener,
+  SpeechBubbleState
+};
 
 export class AvatarController implements System {
   private readonly powerSaveController: PowerSaveController;
@@ -83,33 +73,28 @@ export class AvatarController implements System {
     this.powerSaveController = options.powerSaveController;
     this.limits = options.limits;
     this.getAvailableAnimationsProvider = options.getAvailableAnimations;
-    const maxQueueSize = Math.max(1, options.maxQueueSize ?? 8);
-    const streamTimeoutMs = Math.max(100, options.streamTimeoutMs ?? 5_000);
 
-    const host = {
-      acquireLock: (token: string) => this.acquireLock(token),
-      releaseLock: (token: string) => this.releaseLock(token),
-      nextLockToken: (prefix: string) => this.nextLockToken(prefix),
+    const channels = createAvatarChannels(options, this.powerSaveController, {
+      acquireLock: (token: string) => {
+        this.heldLocks.add(token);
+        this.powerSaveController.acquireActiveLock(token);
+      },
+      releaseLock: (token: string) => {
+        if (this.heldLocks.delete(token))
+          this.powerSaveController.releaseActiveLock(token);
+      },
+      nextLockToken: (prefix: string) => `avatar:${prefix}:${++this.lockSeq}`,
       emitEvent: (ev: AvatarEvent) => this.emitEvent(ev),
       isDisposed: () => this.isDisposed
-    };
-
-    this.mouthChannel = new AvatarMouthChannel(
-      host,
-      maxQueueSize,
-      streamTimeoutMs
-    );
-    this.auxChannels = new AvatarAuxChannels(host, maxQueueSize);
-    this.poseChannel = new AvatarPoseChannel(
-      host,
-      maxQueueSize,
-      options.resolveAnimation
-    );
+    });
+    this.mouthChannel = channels.mouthChannel;
+    this.auxChannels = channels.auxChannels;
+    this.poseChannel = channels.poseChannel;
 
     this.unlistenPowerSave.push(
-      this.powerSaveController.onIdleChange((idle) => {
-        this.emitEvent({ type: "idleChange", idle });
-      }),
+      this.powerSaveController.onIdleChange((idle) =>
+        this.emitEvent({ type: "idleChange", idle })
+      ),
       this.powerSaveController.onVisibilityChange((visible) => {
         if (!visible) this.handleWindowHidden();
       })
@@ -130,6 +115,21 @@ export class AvatarController implements System {
 
   public get disposed(): boolean {
     return this.isDisposed;
+  }
+  public get speech(): SpeechController {
+    return this.mouthChannel.speech;
+  }
+  public get audioOutput(): AudioOutput {
+    return this.mouthChannel.speech.audioOutput;
+  }
+  public get lipSync(): LipSyncController {
+    return this.mouthChannel.speech.lipSync;
+  }
+  public getActiveSpeechBubble(): SpeechBubbleState | null {
+    return this.mouthChannel.speech.getActiveBubble();
+  }
+  public onSpeechBubbleChange(listener: SpeechBubbleListener): UnlistenFn {
+    return this.mouthChannel.speech.onBubbleChange(listener);
   }
 
   public attachAvatar(
@@ -166,9 +166,8 @@ export class AvatarController implements System {
     this.reactionSystem = null;
     this.auxChannels.setSystems({ reactionSystem: null, lookAtSystem: null });
     this.poseChannel.setAnimationSystem(null);
-    if (options.emitEvent) {
+    if (options.emitEvent)
       this.emitEvent({ type: "avatarChange", expressions: [] });
-    }
   }
 
   public getAvailableExpressions(): string[] {
@@ -200,25 +199,20 @@ export class AvatarController implements System {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
   }
-
   public emitEvent(event: AvatarEvent): void {
     for (const listener of this.eventListeners) listener(event);
   }
-
   public emitClick(region: ClickRegion): void {
     this.emitEvent({ type: "click", region });
   }
-
   public setMouthVisemes(
     weights: Partial<Record<MouthVisemeName, number>>
   ): void {
     this.mouthChannel.setVisemes(weights);
   }
-
   public clearMouthVisemes(): void {
     this.mouthChannel.clearVisemes();
   }
-
   public setMouthActive(active: boolean): void {
     this.mouthChannel.setExternalActive(active);
   }
@@ -237,29 +231,22 @@ export class AvatarController implements System {
     rawOrEnvelope: unknown,
     options: DispatchOptions = {}
   ): AvatarResponse {
-    if (this.isDisposed) {
-      return buildErrorResponse("invalid", "AvatarController is disposed");
-    }
-    const em = this.vrm?.expressionManager as
-      { expressionMap?: Record<string, unknown> } | undefined;
-    const hasExprMap = Boolean(em && "expressionMap" in em && em.expressionMap);
-    const res = validateAvatarCommand(rawOrEnvelope, this.limits, {
-      isWindowVisible: this.powerSaveController.isWindowVisible,
-      grantedScopes: options.grantedScopes,
-      availableExpressions: hasExprMap
-        ? Object.keys(em!.expressionMap!)
-        : undefined,
-      availableAnimations: this.getAvailableAnimationsProvider
-        ? this.getAvailableAnimationsProvider()
-        : undefined
-    });
-    if (!res.ok) return res.error;
-    const { id: ref, cmd } = res.value;
-    return this.executeCommand(
-      cmd,
-      options.ownerId ?? "default",
-      ref,
-      options.grantedScopes ?? []
+    return validateAndDispatchAvatarCommand(
+      rawOrEnvelope,
+      options,
+      {
+        isDisposed: this.isDisposed,
+        vrm: this.vrm,
+        limits: this.limits,
+        isWindowVisible: this.powerSaveController.isWindowVisible,
+        availableAnimations: this.getAvailableAnimationsProvider?.()
+      },
+      {
+        auxChannels: this.auxChannels,
+        mouthChannel: this.mouthChannel,
+        poseChannel: this.poseChannel,
+        buildHello: (opts) => this.buildHello(opts)
+      }
     );
   }
 
@@ -275,14 +262,11 @@ export class AvatarController implements System {
     this.auxChannels.step(dtMs);
     this.mouthChannel.step(dtMs);
     this.poseChannel.step(dtMs);
-
-    const emotions = this.emotionScratch;
-    emotions.length = 0;
-    this.auxChannels.collectEmotions(emotions);
-
+    this.emotionScratch.length = 0;
+    this.auxChannels.collectEmotions(this.emotionScratch);
     this.composer.composeAndApply(this.vrm?.expressionManager, {
       blinkWeight: this.animationSystem?.getBlinkWeight() ?? 0,
-      emotions,
+      emotions: this.emotionScratch,
       mouthVisemes: this.mouthChannel.visemeWeights,
       isMouthActive: this.mouthChannel.isActive
     });
@@ -295,42 +279,8 @@ export class AvatarController implements System {
     for (const unlisten of this.unlistenPowerSave) unlisten();
     this.unlistenPowerSave.length = 0;
     this.detachAvatar({ emitEvent: false });
+    this.mouthChannel.dispose();
     this.eventListeners.clear();
-  }
-
-  private executeCommand(
-    cmd: AvatarCommand,
-    ownerId: string,
-    ref: string | undefined,
-    scopes: readonly string[]
-  ): AvatarResponse {
-    switch (cmd.type) {
-      case "hello":
-        return this.buildHello({ ref, scopes, subscribedEvents: cmd.events });
-      case "lookAt":
-        return this.auxChannels.handleLookAt(cmd, ownerId, ref);
-      case "expression":
-        return this.auxChannels.handleExpression(cmd, ownerId, ref);
-      case "reaction":
-        return this.auxChannels.handleReaction(cmd, ownerId, ref);
-      case "animation":
-        return this.poseChannel.handlePose(cmd, ownerId, ref);
-      case "say":
-        return this.mouthChannel.handleSay(cmd, ownerId, ref);
-      case "speak":
-        return this.mouthChannel.handleSpeak(cmd, ownerId, ref);
-      case "speakStart":
-        return this.mouthChannel.handleSpeakStart(cmd, ownerId, ref);
-      case "speakChunk":
-        return this.mouthChannel.handleSpeakChunk(cmd, ownerId, ref);
-      case "speakEnd":
-        return this.mouthChannel.handleSpeakEnd(cmd.streamId, ownerId, ref);
-      case "speakCancel":
-        return this.mouthChannel.handleSpeakCancel(cmd.streamId, ownerId, ref);
-      case "stopSpeaking":
-        this.mouthChannel.interruptAll("cancelled");
-        return buildAckResponse(ref);
-    }
   }
 
   private handleWindowHidden(): void {
@@ -342,24 +292,8 @@ export class AvatarController implements System {
     this.auxChannels.clearAll();
     this.poseChannel.clearAll();
     this.mouthChannel.interruptAll(reason);
-    for (const lock of this.heldLocks) {
+    for (const lock of this.heldLocks)
       this.powerSaveController.releaseActiveLock(lock);
-    }
     this.heldLocks.clear();
-  }
-
-  private nextLockToken(prefix: string): string {
-    return `avatar:${prefix}:${++this.lockSeq}`;
-  }
-
-  private acquireLock(token: string): void {
-    this.heldLocks.add(token);
-    this.powerSaveController.acquireActiveLock(token);
-  }
-
-  private releaseLock(token: string): void {
-    if (this.heldLocks.delete(token)) {
-      this.powerSaveController.releaseActiveLock(token);
-    }
   }
 }

@@ -3,6 +3,12 @@ import * as THREE from "three";
 import type { VRM, VRMExpressionOverrideType } from "@pixiv/three-vrm";
 import type { VRMAnimation } from "@pixiv/three-vrm-animation";
 import { AnimationSystem } from "./AnimationSystem";
+import {
+  AudioOutput,
+  type AudioBufferLike,
+  type AudioBufferSourceNodeLike,
+  type AudioContextLike
+} from "./AudioOutput";
 import { AvatarController, classifyClickRegion } from "./AvatarController";
 import type { AvatarEvent } from "./AvatarCommand";
 import { LookAtSystem } from "./LookAtSystem";
@@ -663,6 +669,109 @@ describe("AvatarController", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(rig.powerSave.hasActiveLocks()).toBe(false);
+
+    controller.dispose();
+    rig.powerSave.dispose();
+  });
+
+  it("drives VRM mouth visemes via AudioOutput RMS fallback and emits speech bubble updates", async () => {
+    const rig = createControllerRig();
+    let currentTime = 0;
+    const holder: { onended: ((ev: Event) => unknown) | null } = {
+      onended: null
+    };
+    const mockCtx: AudioContextLike = {
+      state: "suspended",
+      get currentTime() {
+        return currentTime;
+      },
+      sampleRate: 48_000,
+      destination: {},
+      resume: vi.fn(async () => {
+        (mockCtx as { state: AudioContextState }).state = "running";
+      }),
+      suspend: vi.fn(async () => {}),
+      close: vi.fn(async () => {}),
+      createBuffer: (ch, len, sr) => {
+        const data = Array.from({ length: ch }, () => new Float32Array(len));
+        return {
+          sampleRate: sr,
+          length: len,
+          duration: len / sr,
+          numberOfChannels: ch,
+          getChannelData: (c) => data[c]
+        };
+      },
+      createBufferSource: () => {
+        let buffer: AudioBufferLike | null = null;
+        const src: AudioBufferSourceNodeLike = {
+          get buffer() {
+            return buffer;
+          },
+          set buffer(v) {
+            buffer = v;
+          },
+          get onended() {
+            return holder.onended;
+          },
+          set onended(fn) {
+            holder.onended = fn;
+          },
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+          start: vi.fn(),
+          stop: vi.fn()
+        };
+        return src;
+      },
+      decodeAudioData: vi.fn(async () => {
+        const ch = new Float32Array(4_800).fill(0.2); // 100ms @ 48kHz
+        return {
+          sampleRate: 48_000,
+          length: 4_800,
+          duration: 0.1,
+          numberOfChannels: 1,
+          getChannelData: () => ch
+        };
+      })
+    };
+
+    const controller = new AvatarController({
+      powerSaveController: rig.powerSave,
+      vrm: rig.vrm,
+      animationSystem: rig.animationSystem,
+      audioOutput: new AudioOutput({ createContext: () => mockCtx })
+    });
+
+    const bubbles: Array<string | null> = [];
+    controller.onSpeechBubbleChange((b) => bubbles.push(b?.text ?? null));
+
+    controller.dispatch({
+      v: 1,
+      cmd: {
+        type: "speak",
+        id: "audio-rms",
+        text: "Audio hello",
+        audio: { base64: "AQID", mime: "audio/wav" }
+      }
+    });
+    expect(bubbles).toEqual(["Audio hello"]);
+    expect(rig.powerSave.hasActiveLocks()).toBe(true);
+
+    for (let i = 0; i < 12; i++) {
+      await Promise.resolve();
+    }
+
+    currentTime = 0.05;
+    controller.update(0.016);
+    expect(rig.expressionValues.get("aa")).toBeGreaterThan(0.5);
+
+    currentTime = 0.12;
+    holder.onended?.(new Event("ended"));
+    controller.update(0.016);
+    expect(rig.expressionValues.get("aa")).toBe(0);
+    expect(rig.powerSave.hasActiveLocks()).toBe(false);
+    expect(bubbles).toEqual(["Audio hello", null]);
 
     controller.dispose();
     rig.powerSave.dispose();
