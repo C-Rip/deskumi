@@ -225,9 +225,9 @@ pub fn get_active_window_rect(
         })
         .map_err(|e| AppError::Platform(format!("Failed to query active window rect: {e}")))?;
 
-        let rect = rx
-            .recv()
-            .map_err(|e| AppError::Platform(format!("Failed to receive active window rect: {e}")))?;
+        let rect = rx.recv().map_err(|e| {
+            AppError::Platform(format!("Failed to receive active window rect: {e}"))
+        })?;
         Ok(rect)
     }
 

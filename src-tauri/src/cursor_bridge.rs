@@ -393,7 +393,8 @@ if (workspace.activeWindow) {
                             }
                             invocation.return_value(None);
                         } else if method == "ReportActiveWindow" {
-                            if let Some((x, y, w, h, dw)) = params.get::<(f64, f64, f64, f64, f64)>()
+                            if let Some((x, y, w, h, dw)) =
+                                params.get::<(f64, f64, f64, f64, f64)>()
                             {
                                 super::update_active_window(x, y, w, h, dw);
                             }
@@ -415,7 +416,7 @@ if (workspace.activeWindow) {
                 match reg_result {
                     Ok(reg_id) => {
                         // Keep object registered for the lifetime of the process.
-                        std::mem::forget(reg_id);
+                        let _ = reg_id;
                         log::info!("CursorBridge D-Bus object registered at {OBJECT_PATH}");
                     }
                     Err(e) => {
@@ -431,7 +432,7 @@ if (workspace.activeWindow) {
             },
         );
         // Keep bus name owned for the lifetime of the process.
-        std::mem::forget(owner_id);
+        let _ = owner_id;
     }
 
     fn script_file_path() -> PathBuf {
