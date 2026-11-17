@@ -1,6 +1,9 @@
+use tauri::Manager;
+
 pub mod cursor_bridge;
 pub mod error;
 pub mod input_region;
+pub mod local_bridge;
 pub mod platform;
 pub mod settings_window;
 pub mod tray;
@@ -8,6 +11,7 @@ pub mod tray;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
+        .manage(local_bridge::LocalBridgeState::new())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -28,14 +32,23 @@ pub fn run() {
             platform::get_window_cursor_position,
             platform::get_active_window_rect,
             input_region::set_input_region,
-            settings_window::open_settings_window
+            settings_window::open_settings_window,
+            local_bridge::start_local_bridge,
+            local_bridge::stop_local_bridge,
+            local_bridge::get_bridge_status,
+            local_bridge::regenerate_bridge_token,
+            local_bridge::subscribe_bridge_inbound,
+            local_bridge::send_bridge_event
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
 
-    app.run(|_app_handle, event| {
+    app.run(|app_handle, event| {
         if let tauri::RunEvent::Exit = event {
             cursor_bridge::shutdown();
+            if let Some(bridge) = app_handle.try_state::<local_bridge::LocalBridgeState>() {
+                bridge.shutdown_sync();
+            }
         }
     });
 }

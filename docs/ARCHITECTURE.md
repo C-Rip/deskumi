@@ -85,6 +85,12 @@ actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 | `get_window_cursor_position`  | —                                                                                 | `[number, number] \| null`                 | `platform.rs`        |
 | `get_active_window_rect`      | —                                                                                 | `[number, number, number, number] \| null` | `platform.rs`        |
 | `open_settings_window`        | —                                                                                 | `()`                                       | `settings_window.rs` |
+| `start_local_bridge`          | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `stop_local_bridge`           | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `get_bridge_status`           | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `regenerate_bridge_token`     | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `subscribe_bridge_inbound`    | `{ channel: Channel<BridgeInboundPayload> }` (`InvokeResponseBody::Raw \| Json`)  | `()`                                       | `local_bridge.rs`    |
+| `send_bridge_event`           | `{ message: BridgeOutboundMessage }`                                              | `()`                                       | `local_bridge.rs`    |
 
 ### Eventos (Tauri `emit` / `listen`)
 
@@ -109,6 +115,22 @@ type PlatformCaps = {
   setPosition: boolean; // ¿podemos mover la ventana programáticamente?
 };
 type Rect = { x: number; y: number; w: number; h: number };
+type BridgeStatus = {
+  running: boolean;
+  port: number | null;
+  bridgeFilePath: string | null;
+  token: string | null;
+  connectedClients: number;
+  maxClients: number;
+};
+type BridgeInboundPayload =
+  | ArrayBuffer // tramas binarias `DSK1` para `speakChunk` (PCM)
+  | { kind: "command"; clientId: string; envelope: unknown }
+  | { kind: "clientDisconnected"; clientId: string };
+type BridgeOutboundMessage = {
+  targetClientIds?: string[];
+  payload: unknown;
+};
 ```
 
 Movimiento de ventana: usar la API JS `getCurrentWindow().startDragging()` (funciona en

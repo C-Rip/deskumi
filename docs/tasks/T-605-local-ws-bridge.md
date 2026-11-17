@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                |
 | ------------- | ---------------------------------------------------- |
-| Estado        | lista                                                |
-| Asignado      | —                                                    |
+| Estado        | en revisión                                          |
+| Asignado      | subagent-T-605                                       |
 | Fase          | F6                                                   |
 | Rama          | `feat/T-605-local-ws-bridge`                         |
 | Depende de    | T-602                                                |
@@ -47,12 +47,12 @@ Implementar el servidor WebSocket local en Rust (`src-tauri/src/local_bridge.rs`
 
 ## Criterios de aceptación
 
-- [ ] Con puente desactivado, no se abre socket ni se lanzan tareas Tokio de escucha (0 overhead).
-- [ ] Handshake con cabecera `Origin` es rechazado; token incorrecto o `hello` expirado (> 2 s) cierra la conexión; comparación en tiempo constante.
-- [ ] `bridge.json` se crea atómicamente con modo `0600` en `$XDG_RUNTIME_DIR/deskumi/bridge.json` y se elimina en `RunEvent::Exit`.
-- [ ] Chunks binarios PCM viajan por `tauri::ipc::Channel` (`InvokeResponseBody::Raw`) sin `eval()` ni codificación base64.
-- [ ] Desconectar un cliente WS limpia sus streams en curso y libera locks.
-- [ ] `npm run check` y `(cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo test)` pasan en verde.
+- [x] Con puente desactivado, no se abre socket ni se lanzan tareas Tokio de escucha (0 overhead).
+- [x] Handshake con cabecera `Origin` es rechazado; token incorrecto o `hello` expirado (> 2 s) cierra la conexión; comparación en tiempo constante.
+- [x] `bridge.json` se crea atómicamente con modo `0600` en `$XDG_RUNTIME_DIR/deskumi/bridge.json` y se elimina en `RunEvent::Exit`.
+- [x] Chunks binarios PCM viajan por `tauri::ipc::Channel` (`InvokeResponseBody::Raw`) sin `eval()` ni codificación base64.
+- [x] Desconectar un cliente WS limpia sus streams en curso y libera locks.
+- [x] `npm run check` y `(cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo test)` pasan en verde.
 
 ## Archivos esperados
 
@@ -75,4 +75,16 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué se hizo:**
+  - Dependencias añadidas en [`src-tauri/Cargo.toml`](../../src-tauri/Cargo.toml) (`tokio` `net/time/rt/sync/macros`, `tokio-tungstenite` `0.30` sin TLS con `handshake`, `getrandom` `0.4`, y `futures-util` `0.3` con `default-features = false, features = ["sink", "std"]` — ya presente en `Cargo.lock` vía `tokio-tungstenite`, necesario para `StreamExt`/`SinkExt` sobre `WebSocketStream`).
+  - Servidor WebSocket loopback en [`src-tauri/src/local_bridge.rs`](../../src-tauri/src/local_bridge.rs) (`127.0.0.1:0`, apagado por defecto con 0 tareas/sockets, rechazo HTTP `403` ante cabecera `Origin` en `accept_hdr_async_with_config`, timeouts ≤ 2 s para handshake HTTP y `hello`, token de 256 bits vía `getrandom::fill` comparado en tiempo constante, `bridge.json` atómico `0600` en directorio `0700`, límites `maxClients = 4`, 5 MB por mensaje, token buckets de `30 cmd/s` + `~512 KB/s` PCM binario, reenvío binario `DSK1` por `tauri::ipc::Channel<InvokeResponseBody>` y limpieza en `RunEvent::Exit` en [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs)).
+  - Wrappers IPC en [`src/platform/ipc.ts`](../../src/platform/ipc.ts), tabla actualizada en [`docs/ARCHITECTURE.md`](../ARCHITECTURE.md#contrato-ipc), decodificador/filtros en [`src/platform/bridge/BridgeProtocol.ts`](../../src/platform/bridge/BridgeProtocol.ts), cliente [`src/platform/bridge/BridgeClient.ts`](../../src/platform/bridge/BridgeClient.ts) y tests en [`src/platform/bridge/BridgeClient.test.ts`](../../src/platform/bridge/BridgeClient.test.ts).
+  - Cliente Python mínimo sin dependencias externas en [`examples/bridge/echo_tts_bridge.py`](../../examples/bridge/echo_tts_bridge.py) bajo [`examples/LICENSE`](../../examples/LICENSE) (MIT).
+- **Decisiones tomadas:**
+  - Se usó cabecera binaria `DSK1` de 12 bytes en WS (`streamId` + `sampleRate` + PCM) transformada en Rust a cabecera de 14 bytes con `clientId` asignado por el servidor para `InvokeResponseBody::Raw`, evitando spoofing de `clientId` y sin `ack` por cada chunk binario exitoso (solo `error` si falla).
+  - `regenerate_bridge_token` rota el token atómicamente en `bridge.json` y desconecta clientes autenticados con el token anterior para que la revocación sea efectiva.
+  - `src/main.ts` y `src-tauri/tauri.conf.json` se dejaron intactos para la integración de Ola 3 (`T-607`/coordinador).
+- **Siguientes pasos:**
+  - En Ola 3 (`T-607` / integración `main.ts`), instanciar `BridgeClient`, suscribirlo al arranque y sincronizar `startLocalBridge`/`stopLocalBridge` y `setGrantedScopes` con `AppConfig`.
+- **Entorno y verificación:**
+  - Verificado en Linux mediante `npm run check` y `(cd src-tauri && cargo fmt --check && cargo clippy -- -D warnings && cargo test)` (todos los tests Rust TCP/WS y Vitest en verde). No se ejecutó prueba interactiva GUI (`npm run tauri dev`) en esta sesión headless de subagente.
