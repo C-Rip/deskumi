@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                    |
 | ------------- | ---------------------------------------- |
-| Estado        | lista                                    |
-| Asignado      | —                                        |
+| Estado        | en revisión                              |
+| Asignado      | Frontend Refactor Engineer               |
 | Fase          | F6                                       |
 | Rama          | `refactor/T-601-split-main-and-settings` |
 | Depende de    | —                                        |
@@ -38,9 +38,9 @@ Dividir `src/main.ts` (500 líneas) y `src/settings/SettingsPanel.ts` (886 líne
 
 ## Criterios de aceptación
 
-- [ ] `src/main.ts`, `src/settings/SettingsPanel.ts` y los nuevos módulos extraídos tienen ≤ 300 líneas cada uno.
-- [ ] Ninguna regla de `.agents/rules/frontend-threejs.md` se rompe (`src/engine/**` intacto).
-- [ ] `npm run check` pasa con todos los tests existentes sin regresiones.
+- [x] `src/main.ts`, `src/settings/SettingsPanel.ts` y los nuevos módulos extraídos tienen ≤ 300 líneas cada uno.
+- [x] Ninguna regla de `.agents/rules/frontend-threejs.md` se rompe (`src/engine/**` intacto).
+- [x] `npm run check` pasa con todos los tests existentes sin regresiones.
 - [ ] Probado manualmente con `npm run tauri dev` (avatar, tray y ventana de ajustes funcionan igual).
 
 ## Archivos esperados
@@ -61,4 +61,21 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué quedó:**
+  - `src/main.ts` reducido de 500 a 255 líneas conservando exactamente sus exports (`sceneManager`, `debugOverlay`, `powerSaveController`, `windowPerchController`, `setActiveFps`).
+  - Extraído [`src/platform/window-frame.ts`](../../src/platform/window-frame.ts) (76 líneas): `applyWindowFrameSize`, `applyAvatarTransform`, `getEffectiveFrameSize` y `FrameSize`.
+  - Extraído [`src/platform/app-listeners.ts`](../../src/platform/app-listeners.ts) (229 líneas): `setupAppListeners`, `AppRuntimeState` y `AppListenersDeps` para los 7 listeners IPC (`tray-request-load-avatar`, `tray-request-clear-avatar`, `tray-request-load-vrma`, `tray-request-stop-vrma`, `tray-autostart-changed`, `settings-window-visibility`, `settings-updated`).
+  - `src/settings/SettingsPanel.ts` reducido de 886 a 298 líneas preservando su API pública completa y sin modificar [`src/settings/SettingsPanel.test.ts`](../../src/settings/SettingsPanel.test.ts).
+  - Extraído [`src/settings/SettingsTemplate.ts`](../../src/settings/SettingsTemplate.ts) (189 líneas): `buildSettingsHtml` y `FRAME_PRESETS`.
+  - Extraído [`src/settings/SettingsDom.ts`](../../src/settings/SettingsDom.ts) (208 líneas): referencias (`SettingsDomRefs`), consulta (`querySettingsDomRefs`), enlace de eventos (`bindSettingsDomEvents`) y sincronización DOM (`syncAvatarDom`, `syncScaleDom`, `syncFrameDom`, `syncFpsDom`, `syncSettingsDom`, `applyFeatureToggleDom`).
+  - Extraído [`src/settings/SettingsPreviewController.ts`](../../src/settings/SettingsPreviewController.ts) (259 líneas): guías, botón `Pose Test`, retícula SVG de LookAt y drag vertical del preview.
+  - `src/engine/**` y `docs/ROADMAP.md` permanecen intactos.
+- **Decisiones tomadas:**
+  - El estado mutable de bootstrap (`state: AppRuntimeState`) permanece en `src/main.ts` y se inyecta a `setupAppListeners` para respetar `.agents/rules/frontend-threejs.md` (sin estado global mutable fuera de `main.ts`).
+  - Se extrajo [`src/settings/SettingsDom.ts`](../../src/settings/SettingsDom.ts) adicionalmente para separar el manejo DOM de la plantilla HTML (`SettingsTemplate.ts`) y del controlador (`SettingsPanel.ts`), manteniendo todos los módulos por debajo de 300 líneas sin compactación artificial.
+  - `SettingsPreviewController` limpia sus listeners globales (`mousemove`/`mouseup` en `window`) en `mount()` y `dispose()`.
+- **Verificación ejecutada:**
+  - `npm run check` (`tsc --noEmit`, `eslint .`, `prettier --check .`, `vitest run`: 20 archivos, 187 tests pasando).
+  - `npm run build` (`tsc && vite build` exitoso).
+- **Deuda / Pendiente:**
+  - Pendiente prueba manual interactiva con `npm run tauri dev` (avatar, tray y ventana de ajustes) en sesión gráfica de escritorio.
