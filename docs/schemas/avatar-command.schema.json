@@ -1,0 +1,460 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deskumi.dev/schemas/v1/avatar-command.schema.json",
+  "title": "Deskumi AvatarCommandEnvelope v1",
+  "description": "Versioned command envelope accepted by Deskumi's PluginHost (wrapped with channel: 'deskumi:plugin' and pluginId) and local WebSocket bridge (127.0.0.1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "cmd"],
+  "properties": {
+    "v": {
+      "type": "integer",
+      "const": 1,
+      "description": "Protocol version (must be 1)."
+    },
+    "id": {
+      "$ref": "#/$defs/IdString",
+      "description": "Optional correlation identifier echoed back as response.ref."
+    },
+    "cmd": {
+      "oneOf": [
+        { "$ref": "#/$defs/HelloCommand" },
+        { "$ref": "#/$defs/SpeakCommand" },
+        { "$ref": "#/$defs/SpeakStartCommand" },
+        { "$ref": "#/$defs/SpeakChunkCommand" },
+        { "$ref": "#/$defs/SpeakEndCommand" },
+        { "$ref": "#/$defs/SpeakCancelCommand" },
+        { "$ref": "#/$defs/SayCommand" },
+        { "$ref": "#/$defs/StopSpeakingCommand" },
+        { "$ref": "#/$defs/ExpressionCommand" },
+        { "$ref": "#/$defs/ReactionCommand" },
+        { "$ref": "#/$defs/AnimationCommand" },
+        { "$ref": "#/$defs/LookAtCommand" }
+      ]
+    }
+  },
+  "$defs": {
+    "IdString": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "\\S"
+    },
+    "CommandPolicy": {
+      "type": "string",
+      "enum": ["interrupt", "queue", "drop"],
+      "description": "Channel arbitration policy when the target channel is busy."
+    },
+    "AvatarEventType": {
+      "type": "string",
+      "enum": [
+        "click",
+        "speechStart",
+        "speechEnd",
+        "idleChange",
+        "avatarChange",
+        "windowFocus"
+      ]
+    },
+    "VisemeName": {
+      "type": "string",
+      "enum": ["aa", "ih", "ou", "ee", "oh", "neutral"],
+      "description": "VRM mouth viseme preset name, or 'neutral' for closed mouth."
+    },
+    "VisemeKeyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t", "v"],
+      "properties": {
+        "t": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Time offset in milliseconds from utterance or chunk start."
+        },
+        "v": {
+          "$ref": "#/$defs/VisemeName"
+        },
+        "w": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Optional blend weight in [0, 1] (default 1.0)."
+        }
+      }
+    },
+    "VisemeKeyframeList": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/VisemeKeyframe"
+      }
+    },
+    "SpeakAudioBase64": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base64", "mime"],
+      "description": "Inline encoded audio payload (audio.url is explicitly forbidden in v1).",
+      "properties": {
+        "base64": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Base64-encoded audio bytes (decoded size <= 5242880 bytes / 5 MiB)."
+        },
+        "mime": {
+          "type": "string",
+          "pattern": "^audio/.+",
+          "description": "Audio MIME type (must start with 'audio/')."
+        },
+        "sampleRate": {
+          "type": "integer",
+          "minimum": 8000,
+          "maximum": 48000
+        }
+      }
+    },
+    "HelloCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "hello"
+        },
+        "token": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "\\S",
+          "description": "Required as the first WebSocket frame (from bridge.json); omitted for iframe plugins."
+        },
+        "clientName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "clientVersion": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "events": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/AvatarEventType"
+          },
+          "description": "Selective event subscription list."
+        }
+      }
+    },
+    "SpeakCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "anyOf": [
+        { "required": ["audio"] },
+        {
+          "required": ["visemes"],
+          "properties": {
+            "visemes": { "minItems": 1 }
+          }
+        },
+        {
+          "required": ["text"],
+          "properties": {
+            "text": { "pattern": "\\S" }
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "speak"
+        },
+        "id": {
+          "$ref": "#/$defs/IdString"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "audio": {
+          "$ref": "#/$defs/SpeakAudioBase64"
+        },
+        "visemes": {
+          "$ref": "#/$defs/VisemeKeyframeList"
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "SpeakStartCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "streamId", "sampleRate"],
+      "properties": {
+        "type": {
+          "const": "speakStart"
+        },
+        "streamId": {
+          "$ref": "#/$defs/IdString"
+        },
+        "id": {
+          "$ref": "#/$defs/IdString"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "sampleRate": {
+          "type": "integer",
+          "minimum": 8000,
+          "maximum": 48000
+        },
+        "channels": {
+          "type": "integer",
+          "enum": [1, 2]
+        },
+        "format": {
+          "type": "string",
+          "enum": ["pcm_s16le", "pcm_f32le"]
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "SpeakChunkCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "streamId"],
+      "anyOf": [
+        { "required": ["pcm"] },
+        { "required": ["pcmBase64"] },
+        {
+          "required": ["visemes"],
+          "properties": {
+            "visemes": { "minItems": 1 }
+          }
+        }
+      ],
+      "properties": {
+        "type": {
+          "const": "speakChunk"
+        },
+        "streamId": {
+          "$ref": "#/$defs/IdString"
+        },
+        "pcm": {
+          "description": "In-memory Uint8Array or ArrayBuffer (via structured-clone postMessage or decoded DSK1 WebSocket binary frame; <= 5242880 bytes)."
+        },
+        "pcmBase64": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S",
+          "description": "Base64-encoded PCM chunk (decoded size <= 5242880 bytes). Over WebSocket, prefer DSK1 binary frames."
+        },
+        "visemes": {
+          "$ref": "#/$defs/VisemeKeyframeList"
+        },
+        "sampleRate": {
+          "type": "integer",
+          "minimum": 8000,
+          "maximum": 48000
+        }
+      }
+    },
+    "SpeakEndCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "streamId"],
+      "properties": {
+        "type": {
+          "const": "speakEnd"
+        },
+        "streamId": {
+          "$ref": "#/$defs/IdString"
+        }
+      }
+    },
+    "SpeakCancelCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "streamId"],
+      "properties": {
+        "type": {
+          "const": "speakCancel"
+        },
+        "streamId": {
+          "$ref": "#/$defs/IdString"
+        }
+      }
+    },
+    "SayCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "text"],
+      "properties": {
+        "type": {
+          "const": "say"
+        },
+        "id": {
+          "$ref": "#/$defs/IdString"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "\\S"
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "StopSpeakingCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "const": "stopSpeaking"
+        },
+        "id": {
+          "$ref": "#/$defs/IdString",
+          "description": "If omitted, cancels all active and queued speech; if provided, cancels matching utterance ID."
+        }
+      }
+    },
+    "ExpressionCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "const": "expression"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "\\S"
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "ReactionCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "name"],
+      "properties": {
+        "type": {
+          "const": "reaction"
+        },
+        "name": {
+          "type": "string",
+          "enum": ["happy", "surprised", "relaxed", "wink"]
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "AnimationCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "vrma"],
+      "properties": {
+        "type": {
+          "const": "animation"
+        },
+        "vrma": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "pattern": "\\S",
+          "description": "Registered logical .vrma animation ID (never a filesystem path)."
+        },
+        "loop": {
+          "type": "boolean"
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "fadeInMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    },
+    "LookAtCommand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "x", "y"],
+      "properties": {
+        "type": {
+          "const": "lookAt"
+        },
+        "x": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Normalized horizontal viewport coordinate [-1, 1], origin at window center."
+        },
+        "y": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1,
+          "description": "Normalized vertical viewport coordinate [-1, 1], origin at window center."
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30000
+        },
+        "policy": {
+          "$ref": "#/$defs/CommandPolicy"
+        }
+      }
+    }
+  }
+}

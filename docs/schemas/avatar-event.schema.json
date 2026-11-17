@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deskumi.dev/schemas/v1/avatar-event.schema.json",
+  "title": "Deskumi AvatarEventEnvelope v1",
+  "description": "Versioned event envelope emitted by AvatarController to subscribed WebSocket clients (and wrapped with channel: 'deskumi:plugin' and pluginId when delivered to sandboxed iframe plugins).",
+  "oneOf": [
+    { "$ref": "#/$defs/ClickEvent" },
+    { "$ref": "#/$defs/SpeechStartEvent" },
+    { "$ref": "#/$defs/SpeechEndEvent" },
+    { "$ref": "#/$defs/IdleChangeEvent" },
+    { "$ref": "#/$defs/AvatarChangeEvent" },
+    { "$ref": "#/$defs/WindowFocusEvent" }
+  ],
+  "$defs": {
+    "ClickEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "region"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "click" },
+        "region": {
+          "type": "string",
+          "enum": ["head", "body"]
+        }
+      }
+    },
+    "SpeechStartEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "speechStart" },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "SpeechEndEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "interrupted", "reason"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "speechEnd" },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "interrupted": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["finished", "interrupted", "timeout", "hidden", "cancelled"]
+        }
+      }
+    },
+    "IdleChangeEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "idle"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "idleChange" },
+        "idle": {
+          "type": "boolean"
+        }
+      }
+    },
+    "AvatarChangeEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type", "expressions"],
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "avatarChange" },
+        "expressions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "WindowFocusEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["v", "type"],
+      "description": "Emitted when desktop:events is granted. appId requires desktop:events; title is only included when desktop:windowTitle is also granted.",
+      "properties": {
+        "v": { "type": "integer", "const": 1 },
+        "type": { "const": "windowFocus" },
+        "appId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deskumi.dev/schemas/v1/plugin-manifest.schema.json",
+  "title": "Deskumi Plugin Manifest v1",
+  "description": "Manifest schema validated by src-tauri/src/plugins.rs for $APPDATA/plugins/<id>/manifest.json (max 256 KiB).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "entry"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri-reference"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^(?!.*\\.\\.)[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
+      "description": "Lowercase ASCII identifier matching the plugin directory name; cannot contain '..' or start/end with punctuation."
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "\\S",
+      "description": "Human-readable plugin display name (no control characters)."
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "\\S",
+      "description": "Plugin version string (no control characters)."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "\\S",
+      "description": "Optional summary displayed in Settings."
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\:?#\\x00]+\\.[hH][tT][mM][lL]?$",
+      "description": "Relative subpath to an .html or .htm entry document inside the plugin directory (no '..', query strings, fragments, or symlinks escaping root)."
+    },
+    "permissions": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/AvatarScope"
+      }
+    },
+    "animations": {
+      "type": "array",
+      "maxItems": 64,
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PluginAnimationDecl"
+      }
+    }
+  },
+  "$defs": {
+    "AvatarScope": {
+      "type": "string",
+      "enum": [
+        "avatar:speak",
+        "avatar:interrupt",
+        "avatar:expression",
+        "avatar:animation",
+        "avatar:lookAt",
+        "avatar:events",
+        "desktop:events",
+        "desktop:windowTitle"
+      ]
+    },
+    "PluginAnimationDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "description": "Logical animation ID registered for animation.vrma commands."
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*//)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\:\\x00]+\\.[vV][rR][mM][aA]$",
+          "description": "Relative subpath to a .vrma file inside the plugin directory (max 32 MiB)."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "\\S",
+          "description": "Optional display label shown in Settings."
+        }
+      }
+    }
+  }
+}

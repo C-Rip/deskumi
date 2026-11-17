@@ -1,0 +1,9 @@
+{
+  "id": "hello-companion",
+  "name": "Hello Companion",
+  "version": "0.1.0",
+  "description": "Minimal MIT-licensed example plugin that reacts to avatar clicks (head/body) with expressions and speech bubbles.",
+  "entry": "index.html",
+  "permissions": ["avatar:expression", "avatar:speak", "avatar:events"],
+  "animations": []
+}

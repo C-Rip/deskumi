@@ -8,7 +8,11 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ### Added
 
+- **Motor de habla, _lip-sync_ y burbuja de diálogo (`T-602`..`T-604`)**: Contrato versionado `AvatarCommand`/`AvatarEvent` (`v: 1`), `AvatarController` de 4 canales arbitrados con _wake locks_ en `PowerSaveController`, reproducción de audio en frío con `AudioOutput` + `LipSyncController` (visemas y respaldo RMS) + `SpeechController`, y `SpeechBubbleOverlay` (`pointer-events: none`, anclado al hueso `head`).
+- **Puente WebSocket local `127.0.0.1` (`T-605`, `T-609`)**: Servidor loopback en `local_bridge.rs` (`bridge.json` atómico `0600`, anti-CSWSH sin cabecera `Origin`, token de 256 bits, tramas binarias `DSK1` vía `tauri::ipc::Channel`), cliente Python MIT de referencia (`examples/bridge/echo_tts_bridge.py`) y eventos `windowFocus` con privacidad graduada (`desktop:events` / `desktop:windowTitle`) sobre `org.deskumi.CursorBridge`.
+- **Host de plugins aislados `plugin://` (`T-606`)**: Esquema personalizado en `plugins.rs` con CSP estricta (`default-src 'none'`), montaje en `<iframe sandbox="allow-scripts">` (`PluginHost`) y registro lógico de animaciones `.vrma`.
 - **Ajustes de Puente WebSocket y Plugins (T-607)**: Secciones de configuración en Ajustes para el puente loopback local (`127.0.0.1`, estado en vivo, regeneración/copia de token y scopes con `desktop:windowTitle` desactivado por defecto) y gestor de plugins aislados (consentimiento explícito de permisos, límite de 3 activos y registro de animaciones `.vrma` por ID lógico), junto con capacidades `localBridge`/`plugins` en `PlatformCaps` y sincronización en vivo con el runtime.
+- **Documentación, esquemas JSON, plugin de ejemplo MIT y QA F6 (`T-608`)**: Guía completa en `docs/PLUGINS.md` (con recetas para VOICEVOX, Piper, Kokoro-82M/`sherpa-onnx`, GPT-SoVITS y RVC), esquemas en `docs/schemas/`, plugin de ejemplo MIT `examples/plugins/hello-companion/`, casos de seguridad/soak en `docs/QA.md` y skill `.agents/skills/plugin-authoring/SKILL.md`.
 
 ## [0.2.1] - 2026-11-17
 

