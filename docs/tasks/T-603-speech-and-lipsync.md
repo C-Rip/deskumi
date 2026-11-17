@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
-| Estado        | en revisión                                                              |
+| Estado        | hecha                                                                    |
 | Asignado      | subagent-T-603                                                           |
 | Fase          | F6                                                                       |
 | Rama          | `feat/T-603-speech-and-lipsync`                                          |

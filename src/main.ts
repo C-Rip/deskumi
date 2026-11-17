@@ -31,6 +31,8 @@ import {
   applyWindowFrameSize,
   getEffectiveFrameSize
 } from "./platform/window-frame";
+import { setupRuntimeIntegrations } from "./platform/runtime-integrations";
+import { RegisteredAnimationResolver } from "./platform/plugins/RegisteredAnimationResolver";
 import { WindowPerchController } from "./platform/window-perch";
 import "./styles/app.css";
 
@@ -149,10 +151,23 @@ export const powerSaveController = new PowerSaveController(sceneManager, {
     listenTauriEvent<boolean>("tray-visibility-changed", handler)
 });
 
+const animationResolver = new RegisteredAnimationResolver();
+
 export const avatarController = new AvatarController({
-  powerSaveController
+  powerSaveController,
+  resolveAnimation: (id) => animationResolver.resolve(id),
+  getAvailableAnimations: () => animationResolver.getAvailableIds()
 });
 state.avatarController = avatarController;
+sceneManager.registerSystem(avatarController);
+
+export const runtimeIntegrations = setupRuntimeIntegrations({
+  container: appContainer,
+  sceneManager,
+  avatarController,
+  animationResolver,
+  state
+});
 
 export const windowPerchController = new WindowPerchController({
   getDeskumiSize: () =>

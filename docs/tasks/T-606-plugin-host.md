@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                                                    |
 | ------------- | ------------------------------------------------------------------------ |
-| Estado        | en revisión                                                              |
+| Estado        | hecha                                                                    |
 | Asignado      | subagent-T-606                                                           |
 | Fase          | F6                                                                       |
 | Rama          | `feat/T-606-plugin-host`                                                 |

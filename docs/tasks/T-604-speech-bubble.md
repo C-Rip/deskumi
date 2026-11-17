@@ -2,7 +2,7 @@
 
 | Campo         | Valor                                                                                |
 | ------------- | ------------------------------------------------------------------------------------ |
-| Estado        | en revisión                                                                          |
+| Estado        | hecha                                                                                |
 | Asignado      | subagent-T-604                                                                       |
 | Fase          | F6                                                                                   |
 | Rama          | `feat/T-604-speech-bubble`                                                           |
