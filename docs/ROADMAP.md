@@ -96,16 +96,16 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 
 | ID    | Tarea                                                                                           | Depende de   | Paralelo                | Estado |
 | ----- | ----------------------------------------------------------------------------------------------- | ------------ | ----------------------- | ------ |
-| T-600 | **Spike**: protocolo `plugin://` + CSP, `Channel` binario, `AudioContext`, delta WS → ADR-0006  | —            | con T-601               | 🟦     |
+| T-600 | **Spike**: protocolo `plugin://` + CSP, `Channel` binario, `AudioContext`, delta WS → ADR-0006  | —            | con T-601               | ✅     |
 | T-601 | Refactor puro: dividir `src/main.ts` y `src/settings/SettingsPanel.ts` (< 300 líneas/archivo)   | —            | con T-600               | 🟦     |
-| T-602 | Contrato `AvatarCommand`/`AvatarEvent` + `AvatarController` + wake locks en `PowerSave`         | T-600, T-601 | —                       | ⬜     |
-| T-603 | Habla y _lip-sync_: `AudioOutput` + `LipSyncController` + `SpeechController`                    | T-602        | con T-604, T-605, T-606 | ⬜     |
-| T-604 | `SpeechBubbleOverlay` (`pointer-events: none`, anclado a `head`, sin resize GTK en vivo)        | T-602        | con T-603, T-605, T-606 | ⬜     |
-| T-605 | **Puente WebSocket** `local_bridge.rs` (`127.0.0.1:0`, `bridge.json`, `Origin`/token) + Python  | T-602        | con T-603, T-604, T-606 | ⬜     |
-| T-606 | Host de plugins (`plugins.rs` `plugin://`, `PluginHost`, registro `.vrma`, `csp`/`devCsp`)      | T-602        | con T-603, T-604, T-605 | ⬜     |
-| T-607 | Ajustes: secciones Puente y Plugins (`PlatformCaps` Linux-only, consentimiento de permisos)     | T-605, T-606 | —                       | ⬜     |
-| T-608 | Plugin de ejemplo + `docs/PLUGINS.md` + esquemas JSON + `docs/QA.md` + skill `plugin-authoring` | T-603..T-607 | —                       | ⬜     |
-| T-609 | `windowFocus` (`appId` + `title` por scope): `CursorBridge` D-Bus + KWin + extensión GNOME      | T-605        | —                       | ⬜     |
+| T-602 | Contrato `AvatarCommand`/`AvatarEvent` + `AvatarController` + wake locks en `PowerSave`         | T-600, T-601 | —                       | 🟦     |
+| T-603 | Habla y _lip-sync_: `AudioOutput` + `LipSyncController` + `SpeechController`                    | T-602        | con T-604, T-605, T-606 | 🟦     |
+| T-604 | `SpeechBubbleOverlay` (`pointer-events: none`, anclado a `head`, sin resize GTK en vivo)        | T-602        | con T-603, T-605, T-606 | 🟦     |
+| T-605 | **Puente WebSocket** `local_bridge.rs` (`127.0.0.1:0`, `bridge.json`, `Origin`/token) + Python  | T-602        | con T-603, T-604, T-606 | 🟦     |
+| T-606 | Host de plugins (`plugins.rs` `plugin://`, `PluginHost`, registro `.vrma`, `csp`/`devCsp`)      | T-602        | con T-603, T-604, T-605 | 🟦     |
+| T-607 | Ajustes: secciones Puente y Plugins (`PlatformCaps` Linux-only, consentimiento de permisos)     | T-605, T-606 | —                       | 🟦     |
+| T-608 | Plugin de ejemplo + `docs/PLUGINS.md` + esquemas JSON + `docs/QA.md` + skill `plugin-authoring` | T-603..T-607 | —                       | 🟦     |
+| T-609 | `windowFocus` (`appId` + `title` por scope): `CursorBridge` D-Bus + KWin + extensión GNOME      | T-605        | —                       | 🟦     |
 
 ## Backlog futuro (prioridad media / sin compromiso)
 

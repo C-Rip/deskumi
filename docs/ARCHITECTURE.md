@@ -135,4 +135,5 @@ Ver [docs/adr/](adr/). Resumen:
 - [ADR-0003](adr/0003-xwayland-default-on-linux.md) — XWayland por defecto en Linux (**propuesta**).
 - [ADR-0004](adr/0004-vanilla-ts-settings-window.md) — Ventana de ajustes en TypeScript vanilla (**aceptada**).
 - [ADR-0005](adr/0005-wayland-global-cursor-bridge.md) — Puente D-Bus multi-compositor (`org.deskumi.CursorBridge`) para cursor global en Wayland (**aceptada**).
+- [ADR-0006](adr/0006-plugins-and-local-ws-bridge.md) — Arquitectura de plugins aislados (`plugin://` + `<iframe sandbox="allow-scripts">`), puente WebSocket local (`127.0.0.1`), `Channel` binario, audio/lip-sync, CSP y presupuesto RAM (**aceptada** en T-600).
 - [LIMITATIONS.md](LIMITATIONS.md) — Registro de limitaciones técnicas, workarounds activos y pendientes por resolver.

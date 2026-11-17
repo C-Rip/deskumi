@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                    |
 | ------------- | -------------------------------------------------------- |
-| Estado        | lista                                                    |
-| Asignado      | —                                                        |
+| Estado        | hecha                                                    |
+| Asignado      | @crivera + antigravity                                   |
 | Fase          | F6                                                       |
 | Rama          | `spike/T-600-phase6-risks`                               |
 | Depende de    | —                                                        |
@@ -40,17 +40,18 @@ Revisiones técnicas [phase-6-plan-v3-review.md](../plans/phase-6-plan-v3-review
 
 ## Criterios de aceptación
 
-- [ ] `docs/adr/0006-plugins-and-local-ws-bridge.md` creado en estado `aceptada` con evidencia medible y enlazado en `docs/ARCHITECTURE.md`.
-- [ ] `.agents/rules/plugins.md` creado con invariantes de seguridad, capas y versionado de protocolo.
-- [ ] Presupuesto numérico de RAM/CPU y límites (`maxWorkers`, `maxClients`, tope de mensaje/stream) documentados en el ADR.
-- [ ] Tarjetas `T-602..T-609` creadas en `docs/tasks/` y marcadas 🟦 en `docs/ROADMAP.md`.
-- [ ] `npm run check` y checks de Rust (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`) en verde.
+- [x] `docs/adr/0006-plugins-and-local-ws-bridge.md` creado en estado `aceptada` con evidencia medible y enlazado en `docs/ARCHITECTURE.md`.
+- [x] `.agents/rules/plugins.md` creado con invariantes de seguridad, capas y versionado de protocolo.
+- [x] Presupuesto numérico de RAM/CPU y límites (`maxWorkers`, `maxClients`, tope de mensaje/stream) documentados en el ADR.
+- [x] Tarjetas `T-602..T-609` creadas en `docs/tasks/` y marcadas 🟦 en `docs/ROADMAP.md`.
+- [x] `npm run check` y checks de Rust (`cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`) en verde.
 
 ## Archivos esperados
 
 - `docs/adr/0006-plugins-and-local-ws-bridge.md` — crear
 - `docs/ARCHITECTURE.md` — actualizar sección Decisiones
 - `.agents/rules/plugins.md` — crear
+- `docs/LIMITATIONS.md` — añadir `L-05` y `L-06`
 - `docs/ROADMAP.md` — actualizar estado de `T-600..T-609`
 - `docs/tasks/T-602-*.md` .. `T-609-*.md` — crear
 
@@ -63,4 +64,16 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Hallazgos empíricos clave (E1 — Fedora 44 Workstation, GNOME Wayland + XWayland, WebKitGTK 2.54.2, Tauri 2.12.5, wry 0.57.2):**
+  - **Aislamiento de plugins:** `new Worker("plugin://...")` desde `tauri://localhost` falla por Same-Origin Policy en WebKitGTK 2.54.2 antes de invocar el protocolo en Rust, y los `blob:` Workers del documento principal heredan `connect-src ipc:` (`fetch("ipc://localhost/...")` alcanzó el handler IPC). Se adopta `<iframe sandbox="allow-scripts" src="plugin://<id>/sandbox.html">` con `Content-Security-Policy: default-src 'none'; script-src plugin://<id>; worker-src 'none'; connect-src 'none'` (verificado: origen `"null"`, `fetch`/`WebSocket`/`import()`/`Worker` anidado/acceso a `__TAURI__` bloqueados con 0 hits TCP y ~5.4 MB RSS total para 3 iframes).
+  - **`Channel` binario:** `tauri::ipc::Channel<InvokeResponseBody>` entrega `InvokeResponseBody::Raw` (`4410` bytes y `512` bytes) como `ArrayBuffer` ordenado en ~13 ms sin `eval()` de arrays base64 ni JSON para audio.
+  - **`AudioContext` en frío:** aunque `wry 0.57.2` usa `autoplay: true`, `new AudioContext()` arranca en `"suspended"` en WebKitGTK 2.54.2 sin gesto previo, pero `await ctx.resume()` transiciona a `"running"` y reproduce `AudioBuffer` a 22050 Hz (`onended` a 0.16–0.19 s). `AudioOutput` usará creación perezosa, `resume()` explícito y `suspend()` tras inactividad.
+  - **CSP / devCsp:** validadas sobre `index.html` (`VRM1_Constraint_Twist_Sample.vrm`) y `settings.html` (`SettingsPanel` + `PreviewStage`) sin regresiones.
+  - **Delta de binario Rust (release LTO stripped):** `7,613,064` → `7,762,960` bytes (**+149,896 bytes / ~146.4 KiB**) añadiendo `tokio` (`net`, `time`, `rt`, `sync`, `macros`), `tokio-tungstenite 0.30` (`default-features = false, features = ["handshake"]`, requerido por `accept_hdr_async`) y `getrandom 0.4`.
+- **Entregables creados/actualizados:**
+  - `docs/adr/0006-plugins-and-local-ws-bridge.md` (estado `aceptada`).
+  - `docs/ARCHITECTURE.md` (enlace a ADR-0006 en Decisiones).
+  - `.agents/rules/plugins.md` (guardrails de seguridad y capas para `src/platform/plugins/**`, `src/platform/bridge/**`, `src-tauri/src/plugins.rs`, `src-tauri/src/local_bridge.rs`).
+  - `docs/LIMITATIONS.md` (`L-05` alcance `$HOME/**` en `capabilities/default.json` y `L-06` alcance Linux-first F6).
+  - `docs/tasks/T-602-avatar-controller.md` .. `T-609-cursor-bridge-window-focus.md` + actualización de `docs/ROADMAP.md` (`T-600` ✅, `T-602..T-609` 🟦).
+- **Siguientes pasos:** Una vez mergeados `T-600` y `T-601`, iniciar `T-602` (`feat/T-602-avatar-controller`) y luego paralelizar `T-603`, `T-604`, `T-605` y `T-606`.

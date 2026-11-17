@@ -67,3 +67,29 @@ Cada entrada documenta:
   - `PlatformCaps` reporta capacidades reales por plataforma para degradar de forma segura sin romper el arranque en Windows.
 - **Pendiente por resolver:**
   - Implementar `set_input_region` (Win32 `SetWindowRgn` / `WS_EX_LAYERED`) y `get_window_cursor_position` (`GetCursorPos` + `ScreenToClient`) para Windows en [`src-tauri/src/platform.rs`](../src-tauri/src/platform.rs) y [`src-tauri/src/input_region.rs`](../src-tauri/src/input_region.rs).
+
+---
+
+## L-05: Alcance amplio de lectura `$HOME/**` en `capabilities/default.json`
+
+- **Estado:** Pendiente de revisión de endurecimiento
+- **Contexto / Limitación:**
+  - Actualmente [`src-tauri/capabilities/default.json`](../src-tauri/capabilities/default.json) declara `fs:allow-read-file` con `fs:scope` incluyendo `$HOME/**` para que `loadAvatarModel` y `VRMAPlayer` puedan recargar modelos `.vrm` y animaciones `.vrma` previamente seleccionados tras reiniciar la app sin volver a pedir diálogo.
+  - Aunque en Fase 6 el acceso a archivos de plugins queda aislado en Rust tras el protocolo `plugin://` (`src-tauri/src/plugins.rs`, sin usar `plugin-fs`) y los comandos externos (`AvatarCommand`) solo aceptan IDs registrados de `.vrma`, mantener `$HOME/**` en `capabilities/default.json` amplía el radio de impacto si el WebView principal sufriera XSS.
+- **Acción / Workaround actual:**
+  - Activación de `csp` / `devCsp` estricta en `tauri.conf.json` (T-606) y aislamiento de plugins en `<iframe sandbox="allow-scripts">` sin acceso a `plugin-fs` ni a `ipc:`.
+- **Pendiente por resolver:**
+  - Revisar el reemplazo de `$HOME/**` por scopes persistidos por archivo (`tauri-plugin-persisted-scope` o copia/importación controlada hacia `$APPDATA/avatars/` y `$APPDATA/animations/`) cuando se aborde endurecimiento de permisos de disco.
+
+---
+
+## L-06: Alcance Linux-first para Fase 6 (Plugins, Habla y Puente WebSocket local)
+
+- **Estado:** Decisión de alcance vigente (F6)
+- **Contexto / Limitación:**
+  - La fase F6 (T-600..T-609) prioriza Linux (entornos E1 Fedora GNOME y E2 KDE Plasma) para validar aislamiento en WebKitGTK 2.54+, `AudioContext` en frío vía PipeWire/PulseAudio, `$XDG_RUNTIME_DIR/deskumi/bridge.json` (`0600`) y extensión de `org.deskumi.CursorBridge` para `windowFocus`.
+  - En Windows (WebView2, E4), los protocolos custom usan origen `http://<scheme>.localhost` en lugar de `<scheme>://localhost`, `XDG_RUNTIME_DIR` no existe (requiere `$APPDATA` sin modo POSIX `0600`), y `CursorBridge` D-Bus no aplica.
+- **Acción / Workaround actual:**
+  - Exponer flags explícitos en `PlatformCaps` (`src-tauri/src/platform.rs`, `src/platform/caps.ts`) para habilitar/ocultar funciones soportadas por plataforma y aislar rutas OS-específicas (`#[cfg(target_os = "linux")]` / `#[cfg(windows)]`).
+- **Pendiente por resolver:**
+  - Validación completa en E4 (Windows 11 / WebView2) de `plugin://` (`http://plugin.localhost`), política de autoplay de `AudioContext` y ACL equivalente para `bridge.json` en `%APPDATA%`.
