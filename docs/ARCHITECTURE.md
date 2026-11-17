@@ -76,21 +76,26 @@ actualizar esta tabla en el mismo PR (commit con `!` si rompe compatibilidad).
 
 ### Comandos (`invoke` JS→Rust)
 
-| Comando                       | Payload                                                                           | Respuesta                                  | Módulo Rust          |
-| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
-| `get_platform_caps`           | —                                                                                 | `PlatformCaps`                             | `platform.rs`        |
-| `set_input_region`            | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`                                       | `input_region.rs`    |
-| `set_window_desktop_size`     | `{ width: number, height: number }` (px lógicos)                                  | `()`                                       | `platform.rs`        |
-| `set_window_desktop_position` | `{ x: number, y: number }` (px de escritorio)                                     | `()`                                       | `platform.rs`        |
-| `get_window_cursor_position`  | —                                                                                 | `[number, number] \| null`                 | `platform.rs`        |
-| `get_active_window_rect`      | —                                                                                 | `[number, number, number, number] \| null` | `platform.rs`        |
-| `open_settings_window`        | —                                                                                 | `()`                                       | `settings_window.rs` |
-| `start_local_bridge`          | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `stop_local_bridge`           | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `get_bridge_status`           | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `regenerate_bridge_token`     | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
-| `subscribe_bridge_inbound`    | `{ channel: Channel<BridgeInboundPayload> }` (`InvokeResponseBody::Raw \| Json`)  | `()`                                       | `local_bridge.rs`    |
-| `send_bridge_event`           | `{ message: BridgeOutboundMessage }`                                              | `()`                                       | `local_bridge.rs`    |
+| Comando                           | Payload                                                                           | Respuesta                                  | Módulo Rust          |
+| --------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
+| `get_platform_caps`               | —                                                                                 | `PlatformCaps`                             | `platform.rs`        |
+| `set_input_region`                | `{ rects: Rect[] \| null }` (px lógicos GTK, relativos a ventana; `null` = reset) | `()`                                       | `input_region.rs`    |
+| `set_window_desktop_size`         | `{ width: number, height: number }` (px lógicos)                                  | `()`                                       | `platform.rs`        |
+| `set_window_desktop_position`     | `{ x: number, y: number }` (px de escritorio)                                     | `()`                                       | `platform.rs`        |
+| `get_window_cursor_position`      | —                                                                                 | `[number, number] \| null`                 | `platform.rs`        |
+| `get_active_window_rect`          | —                                                                                 | `[number, number, number, number] \| null` | `platform.rs`        |
+| `open_settings_window`            | —                                                                                 | `()`                                       | `settings_window.rs` |
+| `start_local_bridge`              | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `stop_local_bridge`               | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `get_bridge_status`               | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `regenerate_bridge_token`         | —                                                                                 | `BridgeStatus`                             | `local_bridge.rs`    |
+| `subscribe_bridge_inbound`        | `{ channel: Channel<BridgeInboundPayload> }` (`InvokeResponseBody::Raw \| Json`)  | `()`                                       | `local_bridge.rs`    |
+| `send_bridge_event`               | `{ message: BridgeOutboundMessage }`                                              | `()`                                       | `local_bridge.rs`    |
+| `list_plugins`                    | —                                                                                 | `PluginInfo[]`                             | `plugins.rs`         |
+| `list_registered_animations`      | —                                                                                 | `RegisteredAnimation[]`                    | `plugins.rs`         |
+| `register_animation`              | `{ id: string, path: string, label?: string \| null }`                            | `RegisteredAnimation`                      | `plugins.rs`         |
+| `unregister_animation`            | `{ id: string }`                                                                  | `boolean`                                  | `plugins.rs`         |
+| `read_registered_animation_bytes` | `{ id: string }`                                                                  | `ArrayBuffer` (binario `.vrma`)            | `plugins.rs`         |
 
 ### Eventos (Tauri `emit` / `listen`)
 

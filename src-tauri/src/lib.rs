@@ -5,6 +5,7 @@ pub mod error;
 pub mod input_region;
 pub mod local_bridge;
 pub mod platform;
+pub mod plugins;
 pub mod settings_window;
 pub mod tray;
 
@@ -12,6 +13,7 @@ pub mod tray;
 pub fn run() {
     let app = tauri::Builder::default()
         .manage(local_bridge::LocalBridgeState::new())
+        .manage(plugins::PluginState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
@@ -20,6 +22,9 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
+        .register_uri_scheme_protocol("plugin", |ctx, request| {
+            plugins::handle_plugin_protocol(ctx.app_handle(), request)
+        })
         .setup(|app| {
             tray::create_tray(app.handle())?;
             cursor_bridge::init();
@@ -38,7 +43,12 @@ pub fn run() {
             local_bridge::get_bridge_status,
             local_bridge::regenerate_bridge_token,
             local_bridge::subscribe_bridge_inbound,
-            local_bridge::send_bridge_event
+            local_bridge::send_bridge_event,
+            plugins::list_plugins,
+            plugins::list_registered_animations,
+            plugins::register_animation,
+            plugins::unregister_animation,
+            plugins::read_registered_animation_bytes
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");

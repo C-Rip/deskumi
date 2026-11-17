@@ -5,6 +5,8 @@ use thiserror::Error;
 pub enum AppError {
     #[error("Platform error: {0}")]
     Platform(String),
+    #[error("Plugin error: {0}")]
+    Plugin(String),
 }
 
 impl Serialize for AppError {
