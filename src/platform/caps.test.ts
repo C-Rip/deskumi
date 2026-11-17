@@ -11,5 +11,9 @@ describe("Platform capabilities", () => {
     expect(typeof caps.globalCursor).toBe("boolean");
     expect(typeof caps.inputRegion).toBe("boolean");
     expect(typeof caps.setPosition).toBe("boolean");
+    expect(typeof caps.localBridge).toBe("boolean");
+    expect(typeof caps.plugins).toBe("boolean");
+    expect(caps.localBridge).toBe(false);
+    expect(caps.plugins).toBe(false);
   });
 });

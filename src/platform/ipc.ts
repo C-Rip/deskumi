@@ -18,7 +18,9 @@ export async function getPlatformCaps(): Promise<PlatformCaps> {
       globalCursor: false,
       inputRegion: false,
       alwaysOnTop: false,
-      setPosition: false
+      setPosition: false,
+      localBridge: false,
+      plugins: false
     };
   }
   return await invoke<PlatformCaps>("get_platform_caps");

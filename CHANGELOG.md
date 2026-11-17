@@ -6,6 +6,10 @@ Versionado: [SemVer](https://semver.org/lang/es/).
 
 ## [Unreleased]
 
+### Added
+
+- **Ajustes de Puente WebSocket y Plugins (T-607)**: Secciones de configuración en Ajustes para el puente loopback local (`127.0.0.1`, estado en vivo, regeneración/copia de token y scopes con `desktop:windowTitle` desactivado por defecto) y gestor de plugins aislados (consentimiento explícito de permisos, límite de 3 activos y registro de animaciones `.vrma` por ID lógico), junto con capacidades `localBridge`/`plugins` en `PlatformCaps` y sincronización en vivo con el runtime.
+
 ## [0.2.1] - 2026-11-17
 
 ### Added

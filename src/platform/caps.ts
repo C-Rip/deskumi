@@ -9,6 +9,8 @@ export interface PlatformCaps {
   inputRegion: boolean;
   alwaysOnTop: boolean;
   setPosition: boolean;
+  localBridge: boolean;
+  plugins: boolean;
 }
 
 export { getPlatformCaps } from "./ipc";

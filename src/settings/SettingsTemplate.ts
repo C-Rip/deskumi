@@ -124,6 +124,10 @@ export function buildSettingsHtml(config: AppConfig): string {
       </div>
     </section>
 
+    <section class="settings-card" id="bridge-settings-section" data-section="bridge"></section>
+
+    <section class="settings-card" id="plugins-settings-section" data-section="plugins"></section>
+
     <section class="settings-card" data-section="dev-tools">
       <div class="card-header-row">
         <div class="card-title-group">

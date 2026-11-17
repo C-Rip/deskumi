@@ -2,8 +2,8 @@
 
 | Campo         | Valor                                                             |
 | ------------- | ----------------------------------------------------------------- |
-| Estado        | lista                                                             |
-| Asignado      | —                                                                 |
+| Estado        | en revisión                                                       |
+| Asignado      | subagent-T-607                                                    |
 | Fase          | F6                                                                |
 | Rama          | `feat/T-607-settings-bridge-and-plugins`                          |
 | Depende de    | T-605, T-606                                                      |
@@ -48,10 +48,10 @@ Exponer en la ventana de Ajustes la configuración del Puente WebSocket local (`
 
 ## Criterios de aceptación
 
-- [ ] `PlatformCaps` refleja soporte F6 por plataforma y la UI se adapta limpiamente cuando no está disponible.
-- [ ] Ajustes del Puente muestran estado, puerto, regeneración de token y advertencias claras sobre token único y `desktop:windowTitle` (apagado por defecto).
-- [ ] Ajustes de Plugins exigen consentimiento explícito de permisos y bloquean activar un 4.º plugin simultáneo.
-- [ ] Cada archivo TS modificado o nuevo mantiene ≤ 300 líneas y `npm run check` + checks Rust pasan al 100%.
+- [x] `PlatformCaps` refleja soporte F6 por plataforma y la UI se adapta limpiamente cuando no está disponible.
+- [x] Ajustes del Puente muestran estado, puerto, regeneración de token y advertencias claras sobre token único y `desktop:windowTitle` (apagado por defecto).
+- [x] Ajustes de Plugins exigen consentimiento explícito de permisos y bloquean activar un 4.º plugin simultáneo.
+- [x] Cada archivo TS modificado o nuevo mantiene ≤ 300 líneas y `npm run check` + checks Rust pasan al 100%.
 
 ## Archivos esperados
 
@@ -73,4 +73,17 @@ npm run check
 
 ## Handoff
 
-_Lo llena el agente al terminar: qué quedó, decisiones tomadas, deuda, siguientes pasos, entorno probado._
+- **Qué se hizo:**
+  - `PlatformCaps` ampliado con `localBridge: boolean` y `plugins: boolean` (`true` en Linux, `false` en Windows/macOS y fuera de Tauri) en `src-tauri/src/platform.rs`, `src/platform/caps.ts`, `src/platform/ipc.ts`, `src/platform/caps.test.ts` y `docs/ARCHITECTURE.md`.
+  - Esquema `AppConfig` y migración limpia en `src/platform/store-schema.ts` / `src/platform/store.ts` (`bridgeEnabled`, `bridgeScopes`, `enabledPlugins`, `pluginPermissions`, `registeredAnimations`) con tests de migración y clonado defensivo en `src/platform/store.test.ts`.
+  - Sección de Puente WebSocket local (`src/settings/BridgeSettingsSection.ts`, `src/settings/BridgeSettingsTemplate.ts`) con adaptación por `caps.localBridge`, toggle activar/detener, estado en vivo (`127.0.0.1:<port>`, ruta `bridge.json`, clientes conectados, token enmascarado), botones copiar token/ruta, regeneración de token, aviso de token único de usuario local y scopes con `desktop:windowTitle` apagado por defecto y advertencia de privacidad.
+  - Sección de Plugins y animaciones `.vrma` (`src/settings/PluginsSettingsSection.ts`, `src/settings/PluginsSettingsTemplate.ts`, `src/settings/PluginsDomBinder.ts`) con adaptación por `caps.plugins`, listado de plugins descubiertos (escapando HTML), tope estricto de 3 plugins activos simultáneos (`MAX_ACTIVE_PLUGINS`), checkboxes de consentimiento explícito de permisos por plugin y registro/eliminación de animaciones `.vrma` por ID lógico.
+  - Integración en `SettingsPanel.ts`, `SettingsSubsections.ts`, `SettingsTemplate.ts`, `SettingsDom.ts` y `src/styles/settings.css`, más sincronización en vivo serializada en `src/platform/runtime-integrations.ts`, `src/platform/app-listeners.ts` y `src/main.ts`.
+- **Decisiones tomadas:**
+  - Se extrajeron `src/platform/store-schema.ts`, `src/settings/section-utils.ts`, `src/settings/BridgeSettingsTemplate.ts`, `src/settings/PluginsSettingsTemplate.ts`, `src/settings/PluginsDomBinder.ts` y `src/settings/SettingsSubsections.ts` para respetar estrictamente el límite de ≤ 300 líneas por archivo TS y evitar duplicación de escaping/scopes.
+  - `runtime-integrations.ts` serializa `syncConfig` mediante cola coalescente para evitar condiciones de carrera si `"settings-updated"` se emite rápidamente y sincroniza las animaciones registradas del usuario en `PluginState` tanto al arrancar (`initAvatar`) como al actualizar ajustes.
+- **Entorno probado / Verificación:**
+  - Verificado con `npm run check`, `npm run build`, `cargo fmt --check`, `cargo clippy -- -D warnings` y `cargo test` en Linux.
+  - Validación visual interactiva con `npm run tauri dev` pendiente de prueba manual en escritorio.
+- **Deuda / siguientes pasos:**
+  - Integrar los eventos D-Bus reales de `windowFocus` en `T-609` (fuera de alcance aquí) para alimentar el scope `desktop:events` / `desktop:windowTitle` en vivo.

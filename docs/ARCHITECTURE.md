@@ -118,6 +118,8 @@ type PlatformCaps = {
   inputRegion: boolean; // ¿click-through parcial por región?
   alwaysOnTop: boolean; // ¿el compositor lo respeta?
   setPosition: boolean; // ¿podemos mover la ventana programáticamente?
+  localBridge: boolean; // ¿puente WebSocket local disponible en esta plataforma?
+  plugins: boolean; // ¿runtime de plugins aislados disponible en esta plataforma?
 };
 type Rect = { x: number; y: number; w: number; h: number };
 type BridgeStatus = {

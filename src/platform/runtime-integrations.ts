@@ -3,16 +3,51 @@ import type { AvatarController } from "../engine/AvatarController";
 import type { SceneManager } from "../engine/SceneManager";
 import type { AppRuntimeState } from "./app-listeners";
 import { BridgeClient } from "./bridge/BridgeClient";
-import { PluginHost } from "./plugins/PluginHost";
+import { getPlatformCaps, type PlatformCaps } from "./caps";
+import {
+  listPlugins,
+  listRegisteredAnimations,
+  registerAnimation,
+  startLocalBridge,
+  stopLocalBridge,
+  unregisterAnimation,
+  type BridgeStatus,
+  type PluginInfo,
+  type RegisteredAnimation
+} from "./ipc";
+import { MAX_ACTIVE_PLUGINS, PluginHost } from "./plugins/PluginHost";
+import type { PluginMountConfig } from "./plugins/PluginHostTypes";
 import { RegisteredAnimationResolver } from "./plugins/RegisteredAnimationResolver";
 import { SpeechBubbleOverlay } from "./SpeechBubbleOverlay";
+import {
+  DEFAULT_BRIDGE_SCOPES,
+  toValidAvatarScopes,
+  type AppConfig,
+  type RegisteredAnimationConfig
+} from "./store-schema";
 
 export interface RuntimeIntegrations {
   speechBubble: SpeechBubbleOverlay;
   animationResolver: RegisteredAnimationResolver;
   bridgeClient: BridgeClient;
   pluginHost: PluginHost;
+  syncConfig: (config: AppConfig) => Promise<void>;
   dispose: () => void;
+}
+
+export interface RuntimeSyncDeps {
+  isTauri?: () => boolean;
+  getPlatformCaps?: () => Promise<PlatformCaps>;
+  startLocalBridge?: () => Promise<BridgeStatus>;
+  stopLocalBridge?: () => Promise<BridgeStatus>;
+  listPlugins?: () => Promise<PluginInfo[]>;
+  listRegisteredAnimations?: () => Promise<RegisteredAnimation[]>;
+  registerAnimation?: (
+    id: string,
+    path: string,
+    label?: string
+  ) => Promise<RegisteredAnimation | null>;
+  unregisterAnimation?: (id: string) => Promise<boolean>;
 }
 
 export interface SetupRuntimeIntegrationsOptions {
@@ -21,6 +56,14 @@ export interface SetupRuntimeIntegrationsOptions {
   avatarController: AvatarController;
   animationResolver: RegisteredAnimationResolver;
   state: AppRuntimeState;
+  deps?: RuntimeSyncDeps;
+  speechBubble?: SpeechBubbleOverlay;
+  bridgeClient?: BridgeClient;
+  pluginHost?: PluginHost;
+}
+
+function animSignature(anim: RegisteredAnimationConfig): string {
+  return JSON.stringify([anim.path, anim.label ?? null]);
 }
 
 /**
@@ -37,14 +80,24 @@ export function setupRuntimeIntegrations(
     animationResolver,
     state
   } = options;
+  const runtimeDeps: Required<RuntimeSyncDeps> = {
+    isTauri: options.deps?.isTauri ?? isTauri,
+    getPlatformCaps: options.deps?.getPlatformCaps ?? getPlatformCaps,
+    startLocalBridge: options.deps?.startLocalBridge ?? startLocalBridge,
+    stopLocalBridge: options.deps?.stopLocalBridge ?? stopLocalBridge,
+    listPlugins: options.deps?.listPlugins ?? listPlugins,
+    listRegisteredAnimations:
+      options.deps?.listRegisteredAnimations ?? listRegisteredAnimations,
+    registerAnimation: options.deps?.registerAnimation ?? registerAnimation,
+    unregisterAnimation:
+      options.deps?.unregisterAnimation ?? unregisterAnimation
+  };
 
-  const speechBubble = new SpeechBubbleOverlay({ container });
+  const speechBubble =
+    options.speechBubble ?? new SpeechBubbleOverlay({ container });
   const unlistenBubble = avatarController.onSpeechBubbleChange((bubble) => {
-    if (bubble) {
-      speechBubble.show(bubble.text);
-      return;
-    }
-    speechBubble.hide();
+    if (bubble) speechBubble.show(bubble.text);
+    else speechBubble.hide();
   });
 
   sceneManager.registerSystem({
@@ -62,41 +115,175 @@ export function setupRuntimeIntegrations(
     dispose: () => speechBubble.dispose()
   });
 
-  const bridgeClient = new BridgeClient({
-    avatarController,
-    grantedScopes: [
-      "avatar:speak",
-      "avatar:expression",
-      "avatar:animation",
-      "avatar:lookAt",
-      "avatar:events",
-      "avatar:interrupt"
-    ]
-  });
-  const pluginHost = new PluginHost({
-    avatarController,
-    animationResolver
-  });
-
-  if (isTauri()) {
-    void animationResolver.refresh().catch((err: unknown) => {
-      console.warn("[deskumi] Failed to refresh registered animations:", err);
+  const bridgeClient =
+    options.bridgeClient ??
+    new BridgeClient({
+      avatarController,
+      grantedScopes: toValidAvatarScopes(DEFAULT_BRIDGE_SCOPES)
     });
-    void bridgeClient.start().catch((err: unknown) => {
-      console.warn("[deskumi] Failed to subscribe to bridge inbound:", err);
+  const pluginHost =
+    options.pluginHost ??
+    new PluginHost({
+      avatarController,
+      animationResolver
     });
-  }
 
-  return {
+  let cachedCapsPromise: Promise<PlatformCaps> | null = null;
+  let bridgeRunning = false;
+  let hasSyncedOnce = false;
+  let disposed = false;
+  const syncedAnimations = new Map<string, string>();
+  let pendingConfig: AppConfig | null = null;
+  let activeSync: Promise<void> | null = null;
+
+  const getCaps = (): Promise<PlatformCaps> => {
+    if (!cachedCapsPromise) {
+      cachedCapsPromise = runtimeDeps.getPlatformCaps();
+    }
+    return cachedCapsPromise;
+  };
+
+  const syncAnimations = async (
+    items: readonly RegisteredAnimationConfig[]
+  ): Promise<void> => {
+    const existing = await runtimeDeps.listRegisteredAnimations();
+    const existingUserIds = new Set(
+      existing.filter((a) => a.source === "user").map((a) => a.id)
+    );
+    const desiredIds = new Set(items.map((a) => a.id));
+
+    for (const userId of existingUserIds) {
+      if (!desiredIds.has(userId)) {
+        await runtimeDeps.unregisterAnimation(userId);
+        syncedAnimations.delete(userId);
+        animationResolver.invalidate(userId);
+      }
+    }
+
+    for (const anim of items) {
+      const sig = animSignature(anim);
+      if (
+        syncedAnimations.get(anim.id) === sig &&
+        existingUserIds.has(anim.id)
+      ) {
+        continue;
+      }
+      try {
+        await runtimeDeps.registerAnimation(anim.id, anim.path, anim.label);
+        syncedAnimations.set(anim.id, sig);
+        animationResolver.invalidate(anim.id);
+      } catch (err: unknown) {
+        console.warn(
+          `[deskumi] Failed to register animation '${anim.id}':`,
+          err
+        );
+      }
+    }
+
+    await animationResolver.refresh();
+  };
+
+  const applyConfig = async (config: AppConfig): Promise<void> => {
+    if (disposed) return;
+
+    bridgeClient.setGrantedScopes(toValidAvatarScopes(config.bridgeScopes));
+
+    if (!runtimeDeps.isTauri()) {
+      hasSyncedOnce = true;
+      return;
+    }
+
+    const caps = await getCaps();
+    if (disposed) return;
+
+    if (caps.localBridge) {
+      if (config.bridgeEnabled) {
+        try {
+          await bridgeClient.start();
+          await runtimeDeps.startLocalBridge();
+          bridgeRunning = true;
+        } catch (err: unknown) {
+          console.warn("[deskumi] Failed to start local bridge:", err);
+        }
+      } else if (bridgeRunning || hasSyncedOnce) {
+        try {
+          await runtimeDeps.stopLocalBridge();
+          bridgeRunning = false;
+        } catch (err: unknown) {
+          console.warn("[deskumi] Failed to stop local bridge:", err);
+        }
+      }
+    }
+
+    if (caps.plugins || caps.localBridge) {
+      try {
+        await syncAnimations(config.registeredAnimations);
+      } catch (err: unknown) {
+        console.warn("[deskumi] Failed to sync registered animations:", err);
+      }
+    }
+
+    if (caps.plugins) {
+      if (config.enabledPlugins.length === 0) {
+        pluginHost.syncPlugins([]);
+      } else {
+        try {
+          const discovered = await runtimeDeps.listPlugins();
+          if (disposed) return;
+          const byId = new Map(discovered.map((p) => [p.id, p]));
+          const mountConfigs: PluginMountConfig[] = [];
+          for (const pluginId of config.enabledPlugins) {
+            if (mountConfigs.length >= MAX_ACTIVE_PLUGINS) break;
+            const plugin = byId.get(pluginId);
+            if (!plugin) continue;
+            mountConfigs.push({
+              plugin,
+              grantedPermissions: config.pluginPermissions[pluginId] ?? []
+            });
+          }
+          pluginHost.syncPlugins(mountConfigs);
+        } catch (err: unknown) {
+          console.warn("[deskumi] Failed to sync plugins:", err);
+        }
+      }
+    } else {
+      pluginHost.syncPlugins([]);
+    }
+
+    hasSyncedOnce = true;
+  };
+
+  const syncConfig = async (config: AppConfig): Promise<void> => {
+    pendingConfig = config;
+    if (activeSync) {
+      return await activeSync;
+    }
+    activeSync = (async () => {
+      while (pendingConfig && !disposed) {
+        const next = pendingConfig;
+        pendingConfig = null;
+        await applyConfig(next);
+      }
+    })().finally(() => {
+      activeSync = null;
+    });
+    return await activeSync;
+  };
+
+  const integrations: RuntimeIntegrations = {
     speechBubble,
     animationResolver,
     bridgeClient,
     pluginHost,
+    syncConfig,
     dispose: () => {
+      disposed = true;
       unlistenBubble();
       speechBubble.dispose();
       bridgeClient.dispose();
       pluginHost.dispose();
     }
   };
+  state.runtimeIntegrations = integrations;
+  return integrations;
 }

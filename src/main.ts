@@ -96,9 +96,7 @@ window.addEventListener("click", (event) => {
     viewportHeight
   );
   avatarController.emitClick(region);
-  console.log(
-    `[deskumi] Avatar silhouette clicked (${region})! Triggering reaction`
-  );
+  console.log(`[deskumi] Avatar silhouette clicked (${region})!`);
   state.avatarContext.reactionSystem.triggerRandom();
 });
 
@@ -109,9 +107,7 @@ getPlatformCaps()
   );
 
 const appContainer = document.querySelector<HTMLDivElement>("#app");
-if (!appContainer) {
-  throw new Error("Missing #app container element");
-}
+if (!appContainer) throw new Error("Missing #app container element");
 
 export const sceneManager = new SceneManager({
   container: appContainer,
@@ -232,6 +228,7 @@ async function initAvatar(): Promise<void> {
     debugOverlay.setEnabled(config.debugOverlay);
   }
   windowPerchController.setEnabled(Boolean(config.windowInteraction));
+  void runtimeIntegrations.syncConfig(config);
 
   if (config.avatarPath) {
     try {

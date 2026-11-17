@@ -29,6 +29,8 @@ pub struct PlatformCaps {
     pub input_region: bool,
     pub always_on_top: bool,
     pub set_position: bool,
+    pub local_bridge: bool,
+    pub plugins: bool,
 }
 
 pub fn detect_display_server_from_env(
@@ -80,6 +82,8 @@ pub fn get_caps() -> PlatformCaps {
             input_region: true,
             always_on_top: true,
             set_position: true,
+            local_bridge: true,
+            plugins: true,
         },
         DisplayServer::Wayland => PlatformCaps {
             os: OsType::Linux,
@@ -88,6 +92,8 @@ pub fn get_caps() -> PlatformCaps {
             input_region: true,
             always_on_top: false,
             set_position: false,
+            local_bridge: true,
+            plugins: true,
         },
         DisplayServer::Win32 | DisplayServer::Quartz => unreachable!(),
     }
@@ -102,6 +108,8 @@ pub fn get_caps() -> PlatformCaps {
         input_region: false,
         always_on_top: true,
         set_position: true,
+        local_bridge: false,
+        plugins: false,
     }
 }
 
@@ -114,6 +122,8 @@ pub fn get_caps() -> PlatformCaps {
         input_region: false,
         always_on_top: true,
         set_position: true,
+        local_bridge: false,
+        plugins: false,
     }
 }
 
@@ -126,6 +136,8 @@ pub fn get_caps() -> PlatformCaps {
         input_region: false,
         always_on_top: false,
         set_position: false,
+        local_bridge: false,
+        plugins: false,
     }
 }
 
@@ -344,6 +356,8 @@ mod tests {
             input_region: true,
             always_on_top: true,
             set_position: true,
+            local_bridge: true,
+            plugins: true,
         };
         let json = serde_json::to_string(&caps).expect("serialization failed");
         assert!(json.contains("\"displayServer\":\"xwayland\""));
@@ -351,6 +365,15 @@ mod tests {
         assert!(json.contains("\"inputRegion\":true"));
         assert!(json.contains("\"alwaysOnTop\":true"));
         assert!(json.contains("\"setPosition\":true"));
+        assert!(json.contains("\"localBridge\":true"));
+        assert!(json.contains("\"plugins\":true"));
         assert!(json.contains("\"os\":\"linux\""));
+    }
+
+    #[test]
+    fn test_get_caps_f6_flags_match_os() {
+        let caps = get_caps();
+        assert_eq!(caps.local_bridge, cfg!(target_os = "linux"));
+        assert_eq!(caps.plugins, cfg!(target_os = "linux"));
     }
 }

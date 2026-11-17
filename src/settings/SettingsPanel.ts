@@ -1,16 +1,18 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  type AppConfig,
-  type ConfigManager,
-  defaultConfigManager,
-  DEFAULT_CONFIG
-} from "../platform/store";
 import { pickVRMFile } from "../platform/avatar-picker";
-import { emitTauriEvent } from "../platform/ipc";
+import { getPlatformCaps, type PlatformCaps } from "../platform/caps";
+import {
+  cloneAppConfig,
+  DEFAULT_CONFIG,
+  defaultConfigManager,
+  type AppConfig,
+  type ConfigManager
+} from "../platform/store";
+import type { BridgeSettingsSection } from "./BridgeSettingsSection";
+import type { PluginsSettingsSection } from "./PluginsSettingsSection";
 import {
   applyFeatureToggleDom,
   bindSettingsDomEvents,
+  emitTauriSettingsEvent,
   querySettingsDomRefs,
   syncAvatarDom,
   syncFpsDom,
@@ -20,54 +22,41 @@ import {
   type SettingsDomRefs
 } from "./SettingsDom";
 import { SettingsPreviewController } from "./SettingsPreviewController";
+import {
+  closeSettingsWindow,
+  DebouncedPersister,
+  FALLBACK_SETTINGS_CAPS,
+  mountSettingsSubsections,
+  ToastController,
+  type SettingsEmitPayload,
+  type SettingsPanelOptions
+} from "./SettingsSubsections";
 import { buildSettingsHtml } from "./SettingsTemplate";
 
-export type SettingsEmitPayload = AppConfig | boolean | unknown;
-
-export interface SettingsPanelOptions {
-  container: HTMLElement;
-  configManager?: ConfigManager;
-  onEmit?: (
-    event: string,
-    payload: SettingsEmitPayload
-  ) => Promise<void> | void;
-  pickFile?: () => Promise<string | null>;
-}
-
-async function emitTauriSettingsEvent(
-  event: string,
-  payload?: unknown
-): Promise<void> {
-  try {
-    await emitTauriEvent(event, payload);
-  } catch (err) {
-    console.warn(`[deskumi-settings] Failed to emit ${event} event:`, err);
-  }
-}
+export type { SettingsEmitPayload, SettingsPanelOptions };
 
 export class SettingsPanel {
-  private readonly container: HTMLElement;
+  private readonly opts: SettingsPanelOptions;
   private readonly configManager: ConfigManager;
   private readonly onEmit: (
     event: string,
     payload: SettingsEmitPayload
   ) => Promise<void> | void;
-  private readonly pickFile: () => Promise<string | null>;
-
-  private config: AppConfig = { ...DEFAULT_CONFIG };
+  private config: AppConfig = cloneAppConfig(DEFAULT_CONFIG);
+  private caps: PlatformCaps = { ...FALLBACK_SETTINGS_CAPS };
   private refs: SettingsDomRefs | null = null;
-  private toastTimeout: ReturnType<typeof setTimeout> | null = null;
-  private scaleDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
-  private frameDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly toast = new ToastController();
+  private readonly debouncer = new DebouncedPersister();
   private readonly previewController: SettingsPreviewController;
+  private bridgeSection: BridgeSettingsSection | null = null;
+  private pluginsSection: PluginsSettingsSection | null = null;
 
   constructor(options: SettingsPanelOptions) {
-    this.container = options.container;
+    this.opts = options;
     this.configManager = options.configManager ?? defaultConfigManager;
     this.onEmit = options.onEmit ?? emitTauriSettingsEvent;
-    this.pickFile = options.pickFile ?? pickVRMFile;
     this.previewController = new SettingsPreviewController({
-      onShowToast: (msg) => this.showToast(msg),
+      onShowToast: (msg) => this.toast.show(this.refs?.toastEl, msg),
       onOffsetYChange: (offsetY) => {
         this.config.avatarOffsetX = 0;
         this.config.avatarOffsetY = offsetY;
@@ -84,21 +73,37 @@ export class SettingsPanel {
     try {
       this.config = await this.configManager.load();
     } catch (err) {
-      console.warn(
-        "[deskumi-settings] Failed to load store, using defaults:",
-        err
-      );
+      console.warn("[deskumi-settings] Failed to load store:", err);
     }
-    this.render();
+    try {
+      this.caps = await (this.opts.getCaps ?? getPlatformCaps)();
+    } catch (err) {
+      console.warn("[deskumi-settings] Failed to query platform caps:", err);
+    }
+    this.render(false);
+    await Promise.all([
+      this.caps.localBridge ? this.bridgeSection?.refreshStatus() : undefined,
+      this.caps.plugins ? this.pluginsSection?.refresh() : undefined
+    ]);
   }
 
   public getConfig(): AppConfig {
-    return { ...this.config };
+    return cloneAppConfig(this.config);
   }
 
-  public render(): void {
-    this.container.innerHTML = buildSettingsHtml(this.config);
-    this.refs = querySettingsDomRefs(this.container);
+  public getBridgeSection(): BridgeSettingsSection | null {
+    return this.bridgeSection;
+  }
+
+  public getPluginsSection(): PluginsSettingsSection | null {
+    return this.pluginsSection;
+  }
+
+  public render(autoRefreshSections = true): void {
+    this.bridgeSection?.dispose();
+    this.pluginsSection?.dispose();
+    this.opts.container.innerHTML = buildSettingsHtml(this.config);
+    this.refs = querySettingsDomRefs(this.opts.container);
     bindSettingsDomEvents(this.refs, {
       onPickAvatar: () => void this.handlePickAvatar(),
       onClearAvatar: () => void this.handleClearAvatar(),
@@ -109,15 +114,35 @@ export class SettingsPanel {
       onFpsCapChange: (fps) => void this.handleFpsCapChange(fps),
       onToggleFeature: (key, btn) => void this.handleToggleFeature(key, btn),
       onResetDefaults: () => void this.handleResetDefaults(),
-      onCancel: () => void this.closeWindow(),
+      onCancel: () => void closeSettingsWindow(this.onEmit),
       onSaveClose: () => void this.handleSaveAndClose()
     });
+    const mounted = mountSettingsSubsections({
+      refs: this.refs,
+      caps: this.caps,
+      getConfig: () => this.config,
+      updateConfig: (patch) => this.updateSectionConfig(patch),
+      showToast: (msg) => this.toast.show(this.refs?.toastEl, msg),
+      autoRefresh: autoRefreshSections,
+      bridgeDeps: this.opts.bridgeDeps,
+      pluginsDeps: this.opts.pluginsDeps
+    });
+    this.bridgeSection = mounted.bridgeSection;
+    this.pluginsSection = mounted.pluginsSection;
     this.syncUI();
     this.previewController.mount(
-      this.container,
+      this.opts.container,
       this.config,
       () => this.config.avatarOffsetY ?? 0
     );
+  }
+
+  private async updateSectionConfig(patch: Partial<AppConfig>): Promise<void> {
+    this.config = cloneAppConfig({ ...this.config, ...patch });
+    for (const key of Object.keys(patch) as Array<keyof AppConfig>) {
+      await this.configManager.set(key, this.config[key]);
+    }
+    await this.emitUpdate();
   }
 
   private async handleToggleFeature(
@@ -125,18 +150,16 @@ export class SettingsPanel {
     btn: HTMLButtonElement
   ): Promise<void> {
     const nextState = !this.config[key];
-    this.config[key] = nextState;
-    const toastMsg = applyFeatureToggleDom(btn, key, nextState);
-    await this.configManager.set(key, nextState);
-    await this.emitUpdate();
-    this.showToast(toastMsg);
+    const msg = applyFeatureToggleDom(btn, key, nextState);
+    await this.updateSectionConfig({ [key]: nextState });
+    this.toast.show(this.refs?.toastEl, msg);
   }
 
   public async handlePickAvatar(): Promise<void> {
     try {
-      const selected = await this.pickFile();
-      if (!selected) return;
-      await this.applyAvatarPathChange(selected, "Avatar actualizado");
+      const selected = await (this.opts.pickFile ?? pickVRMFile)();
+      if (selected)
+        await this.applyAvatarPathChange(selected, "Avatar actualizado");
     } catch (err) {
       console.error("[deskumi-settings] Failed to pick avatar:", err);
     }
@@ -159,7 +182,7 @@ export class SettingsPanel {
     if (this.refs) syncAvatarDom(this.refs, this.config);
     await this.previewController.loadModel(this.config);
     await this.emitUpdate();
-    this.showToast(toastMsg);
+    this.toast.show(this.refs?.toastEl, toastMsg);
   }
 
   public async handleScaleChange(scale: number): Promise<void> {
@@ -170,13 +193,9 @@ export class SettingsPanel {
     }
     this.previewController.setScale(clamped);
     void this.emitUpdate();
-
-    if (this.scaleDebounceTimeout !== null) {
-      clearTimeout(this.scaleDebounceTimeout);
-    }
-    this.scaleDebounceTimeout = setTimeout(() => {
-      void this.configManager.set("avatarScale", clamped);
-    }, 200);
+    this.debouncer.schedule("scale", this.configManager, (cm) =>
+      cm.set("avatarScale", clamped)
+    );
   }
 
   public async handleFrameWidthChange(w: number): Promise<void> {
@@ -195,7 +214,11 @@ export class SettingsPanel {
     this.config[axis] = value;
     if (el) el.textContent = `${value} px`;
     this.previewController.updateGuide(this.config);
-    this.debounceFrameSave();
+    void this.emitUpdate();
+    this.debouncer.schedule("frame", this.configManager, async (cm) => {
+      await cm.set("frameWidth", this.config.frameWidth);
+      await cm.set("frameHeight", this.config.frameHeight);
+    });
   }
 
   public async applyFramePreset(w: number, h: number): Promise<void> {
@@ -203,49 +226,38 @@ export class SettingsPanel {
     this.config.frameHeight = h;
     if (this.refs) syncFrameDom(this.refs, this.config);
     this.previewController.updateGuide(this.config);
-    this.debounceFrameSave();
-  }
-
-  private debounceFrameSave(): void {
     void this.emitUpdate();
-    if (this.frameDebounceTimeout !== null) {
-      clearTimeout(this.frameDebounceTimeout);
-    }
-    this.frameDebounceTimeout = setTimeout(async () => {
-      await this.configManager.set("frameWidth", this.config.frameWidth);
-      await this.configManager.set("frameHeight", this.config.frameHeight);
-    }, 200);
+    this.debouncer.schedule("frame", this.configManager, async (cm) => {
+      await cm.set("frameWidth", w);
+      await cm.set("frameHeight", h);
+    });
   }
 
   public async handleFpsCapChange(fps: number): Promise<void> {
-    this.config.fpsCap = fps;
+    await this.updateSectionConfig({ fpsCap: fps });
     if (this.refs) syncFpsDom(this.refs, this.config);
-    await this.configManager.set("fpsCap", fps);
-    await this.emitUpdate();
-    this.showToast(`FPS limitado a ${fps}`);
+    this.toast.show(this.refs?.toastEl, `FPS limitado a ${fps}`);
   }
 
   public async handleResetPosition(): Promise<void> {
-    try {
-      this.config.windowX = null;
-      this.config.windowY = null;
-      await this.configManager.set("windowX", null);
-      await this.configManager.set("windowY", null);
-      await this.emitUpdate();
-      this.showToast("Posición restablecida al centro");
-    } catch (err) {
-      console.error("[deskumi-settings] Failed to reset position:", err);
-    }
+    await this.updateSectionConfig({ windowX: null, windowY: null });
+    this.toast.show(this.refs?.toastEl, "Posición restablecida al centro");
   }
 
   public async handleResetDefaults(): Promise<void> {
     try {
-      this.config = { ...DEFAULT_CONFIG };
+      const prevAnimations = this.config.registeredAnimations;
+      this.config = cloneAppConfig(DEFAULT_CONFIG);
       await this.configManager.saveConfig(this.config);
       this.syncUI();
       this.previewController.updateGuide(this.config);
+      await this.bridgeSection?.resetToDefaults();
+      await this.pluginsSection?.resetToDefaults(prevAnimations);
       await this.emitUpdate();
-      this.showToast("Valores predeterminados restaurados");
+      this.toast.show(
+        this.refs?.toastEl,
+        "Valores predeterminados restaurados"
+      );
     } catch (err) {
       console.error("[deskumi-settings] Failed to reset defaults:", err);
     }
@@ -255,7 +267,7 @@ export class SettingsPanel {
     try {
       await this.configManager.saveConfig(this.config);
       await this.emitUpdate();
-      await this.closeWindow();
+      await closeSettingsWindow(this.onEmit);
     } catch (err) {
       console.error("[deskumi-settings] Failed to save:", err);
     }
@@ -263,17 +275,10 @@ export class SettingsPanel {
 
   public dispose(): void {
     this.previewController.dispose();
-  }
-
-  private async closeWindow(): Promise<void> {
-    if (!isTauri()) return;
-    try {
-      await this.onEmit("settings-window-visibility", false);
-      const win = getCurrentWindow();
-      await win.close();
-    } catch (err) {
-      console.warn("[deskumi-settings] Failed to close window:", err);
-    }
+    this.bridgeSection?.dispose();
+    this.pluginsSection?.dispose();
+    this.toast.dispose();
+    this.debouncer.dispose();
   }
 
   private syncUI(): void {
@@ -282,17 +287,6 @@ export class SettingsPanel {
   }
 
   private async emitUpdate(): Promise<void> {
-    await this.onEmit("settings-updated", { ...this.config });
-  }
-
-  private showToast(msg: string): void {
-    const toast = this.refs?.toastEl;
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.classList.add("show");
-    if (this.toastTimeout !== null) clearTimeout(this.toastTimeout);
-    this.toastTimeout = setTimeout(() => {
-      this.refs?.toastEl?.classList.remove("show");
-    }, 2000);
+    await this.onEmit("settings-updated", cloneAppConfig(this.config));
   }
 }

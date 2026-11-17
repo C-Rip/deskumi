@@ -2,57 +2,30 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalPosition } from "@tauri-apps/api/window";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { setWindowDesktopPosition } from "./ipc";
+import {
+  cloneAppConfig,
+  DEFAULT_BRIDGE_SCOPES,
+  DEFAULT_CONFIG,
+  migrateAppConfig,
+  type AppConfig,
+  type RegisteredAnimationConfig
+} from "./store-schema";
 
-/**
- * Persisted application configuration schema.
- */
-export interface AppConfig {
-  /** Window X coordinate on desktop */
-  windowX: number | null;
-  /** Window Y coordinate on desktop */
-  windowY: number | null;
-  /** Target framerate limit */
-  fpsCap: number;
-  /** Active VRM avatar identifier or path */
-  avatarPath: string | null;
-  /** Active VRMA animation file path */
-  vrmaPath: string | null;
-  /** Launch application automatically on system startup */
-  autostart: boolean;
-  /** Avatar visual scale multiplier (0.5x - 2.0x, default 1.0) */
-  avatarScale: number;
-  /** Transparent window frame width in pixels (default 400) */
-  frameWidth: number;
-  /** Transparent window frame height in pixels (default 600) */
-  frameHeight: number;
-  /** Avatar horizontal offset in 3D world units (default 0) */
-  avatarOffsetX?: number;
-  /** Avatar vertical offset in 3D world units (default 0) */
-  avatarOffsetY?: number;
-  /** Developer mode / debugging overlay visible on desktop window (default false) */
-  debugOverlay?: boolean;
-  /** Automatically perch avatar atop the active window's titlebar (default false) */
-  windowInteraction?: boolean;
-}
-
-/**
- * Default fallback configuration.
- */
-export const DEFAULT_CONFIG: AppConfig = {
-  windowX: null,
-  windowY: null,
-  fpsCap: 30,
-  avatarPath: null,
-  vrmaPath: null,
-  autostart: false,
-  avatarScale: 1.0,
-  frameWidth: 400,
-  frameHeight: 600,
-  avatarOffsetX: 0,
-  avatarOffsetY: 0,
-  debugOverlay: false,
-  windowInteraction: false
+export {
+  cloneAppConfig,
+  DEFAULT_BRIDGE_SCOPES,
+  DEFAULT_CONFIG,
+  migrateAppConfig,
+  type AppConfig,
+  type RegisteredAnimationConfig
 };
+
+export interface StoreBackend {
+  get<T>(key: string): Promise<T | undefined>;
+  set(key: string, value: unknown): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  save(): Promise<void>;
+}
 
 export const SETTINGS_FILE = "settings.json";
 
@@ -60,48 +33,49 @@ export const SETTINGS_FILE = "settings.json";
  * Typed wrapper around Tauri Store plugin.
  */
 export class ConfigManager {
-  private store: LazyStore | null = null;
-  private memoryConfig: AppConfig = { ...DEFAULT_CONFIG };
+  private store: StoreBackend | null = null;
+  private memoryConfig: AppConfig = cloneAppConfig(DEFAULT_CONFIG);
 
-  constructor(private readonly storeFile = SETTINGS_FILE) {
-    if (isTauri()) {
+  constructor(
+    private readonly storeFile = SETTINGS_FILE,
+    storeBackend?: StoreBackend
+  ) {
+    if (storeBackend) {
+      this.store = storeBackend;
+    } else if (isTauri()) {
       this.store = new LazyStore(this.storeFile);
     }
   }
 
   /**
-   * Loads config from persistent store, merging with defaults.
+   * Loads config from persistent store, migrating legacy settings onto defaults.
    */
   async load(): Promise<AppConfig> {
     if (!this.store) {
-      return { ...this.memoryConfig };
+      return cloneAppConfig(this.memoryConfig);
     }
 
     try {
       const keys = Object.keys(DEFAULT_CONFIG) as Array<keyof AppConfig>;
-      const loaded: Partial<AppConfig> = {};
+      const loaded: Record<string, unknown> = {};
 
       for (const key of keys) {
-        const val = await this.store.get<AppConfig[typeof key]>(key);
+        const val = await this.store.get<unknown>(key);
         if (val !== undefined && val !== null) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (loaded as any)[key] = val;
+          loaded[key] = val;
         }
       }
 
-      this.memoryConfig = {
-        ...DEFAULT_CONFIG,
-        ...loaded
-      };
+      this.memoryConfig = migrateAppConfig(loaded);
     } catch (err: unknown) {
       console.warn(
         "[deskumi] Failed to load settings from store, using defaults:",
         err
       );
-      this.memoryConfig = { ...DEFAULT_CONFIG };
+      this.memoryConfig = cloneAppConfig(DEFAULT_CONFIG);
     }
 
-    return { ...this.memoryConfig };
+    return cloneAppConfig(this.memoryConfig);
   }
 
   /**
@@ -111,12 +85,15 @@ export class ConfigManager {
     key: K,
     value: AppConfig[K]
   ): Promise<void> {
-    this.memoryConfig[key] = value;
+    this.memoryConfig = cloneAppConfig({
+      ...this.memoryConfig,
+      [key]: value
+    });
     if (!this.store) {
       return;
     }
     try {
-      await this.store.set(key, value);
+      await this.store.set(key, this.memoryConfig[key]);
       await this.store.save();
     } catch (err: unknown) {
       console.warn(`[deskumi] Failed to persist setting ${String(key)}:`, err);
@@ -127,7 +104,11 @@ export class ConfigManager {
    * Deletes a configuration key from persistent store.
    */
   async delete<K extends keyof AppConfig>(key: K): Promise<void> {
-    this.memoryConfig[key] = DEFAULT_CONFIG[key];
+    const fallback = cloneAppConfig(DEFAULT_CONFIG)[key];
+    this.memoryConfig = cloneAppConfig({
+      ...this.memoryConfig,
+      [key]: fallback
+    });
     if (!this.store) {
       return;
     }
@@ -143,12 +124,12 @@ export class ConfigManager {
    * Saves an entire AppConfig object to store.
    */
   async saveConfig(config: AppConfig): Promise<void> {
-    this.memoryConfig = { ...config };
+    this.memoryConfig = cloneAppConfig(config);
     if (!this.store) return;
     try {
-      const keys = Object.keys(config) as Array<keyof AppConfig>;
+      const keys = Object.keys(this.memoryConfig) as Array<keyof AppConfig>;
       for (const key of keys) {
-        await this.store.set(key, config[key]);
+        await this.store.set(key, this.memoryConfig[key]);
       }
       await this.store.save();
     } catch (err: unknown) {
@@ -160,7 +141,7 @@ export class ConfigManager {
    * Returns current cached configuration.
    */
   get(): AppConfig {
-    return { ...this.memoryConfig };
+    return cloneAppConfig(this.memoryConfig);
   }
 }
 
@@ -179,7 +160,6 @@ export async function restoreWindowPosition(
   const config = await configManager.load();
   if (config.windowX !== null && config.windowY !== null) {
     try {
-      // First try native GTK move (bypasses Mutter auto-centering/elevation)
       await setWindowDesktopPosition(
         Math.round(config.windowX),
         Math.round(config.windowY)
@@ -188,7 +168,6 @@ export async function restoreWindowPosition(
         `[deskumi] Restored window position via native GTK to (${config.windowX}, ${config.windowY})`
       );
     } catch {
-      // Fallback to Tauri standard setPosition
       try {
         const win = getCurrentWindow();
         await win.setPosition(
@@ -216,8 +195,6 @@ export async function saveWindowPosition(
 
   try {
     const win = getCurrentWindow();
-    // Use innerPosition() to align with setPosition() coordinate space,
-    // avoiding top frame extent offsets (like GNOME panel 37px offset).
     const pos = await win.innerPosition();
     await configManager.set("windowX", pos.x);
     await configManager.set("windowY", pos.y);

@@ -1,5 +1,17 @@
+import { emitTauriEvent } from "../platform/ipc";
 import type { AppConfig } from "../platform/store";
 import { FRAME_PRESETS } from "./SettingsTemplate";
+
+export async function emitTauriSettingsEvent(
+  event: string,
+  payload?: unknown
+): Promise<void> {
+  try {
+    await emitTauriEvent(event, payload);
+  } catch (err) {
+    console.warn(`[deskumi-settings] Failed to emit ${event} event:`, err);
+  }
+}
 
 export type FeatureToggleKey = "debugOverlay" | "windowInteraction";
 
@@ -40,6 +52,8 @@ export interface SettingsDomRefs {
   cancelBtn: HTMLButtonElement | null;
   saveCloseBtn: HTMLButtonElement | null;
   toastEl: HTMLElement | null;
+  bridgeSectionEl: HTMLElement | null;
+  pluginsSectionEl: HTMLElement | null;
 }
 
 export interface SettingsDomHandlers {
@@ -83,7 +97,9 @@ export function querySettingsDomRefs(container: HTMLElement): SettingsDomRefs {
     resetDefaultsBtn: q<HTMLButtonElement>("#btn-reset-defaults"),
     cancelBtn: q<HTMLButtonElement>("#btn-cancel"),
     saveCloseBtn: q<HTMLButtonElement>("#btn-save-close"),
-    toastEl: q("#settings-status-toast")
+    toastEl: q("#settings-status-toast"),
+    bridgeSectionEl: q<HTMLElement>("#bridge-settings-section"),
+    pluginsSectionEl: q<HTMLElement>("#plugins-settings-section")
   };
 }
 

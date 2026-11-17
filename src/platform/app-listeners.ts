@@ -13,6 +13,7 @@ import {
 } from "./avatar-picker";
 import type { DebugOverlay } from "./DebugOverlay";
 import { listenTauriEvent } from "./ipc";
+import type { RuntimeIntegrations } from "./runtime-integrations";
 import { defaultConfigManager, type AppConfig } from "./store";
 import {
   applyAvatarTransform,
@@ -25,6 +26,7 @@ import type { WindowPerchController } from "./window-perch";
 export interface AppRuntimeState {
   avatarContext: LoadedAvatarContext | null;
   avatarController?: AvatarController;
+  runtimeIntegrations?: RuntimeIntegrations;
   activeAvatarPath: string | null;
   configuredFrameSize: FrameSize;
   activeScale: number;
@@ -147,6 +149,11 @@ async function applySettingsUpdate(
   // 7. Update Window Interaction (perch atop active window)
   if (typeof newConfig.windowInteraction === "boolean") {
     windowPerchController.setEnabled(newConfig.windowInteraction);
+  }
+
+  // 8. Live-sync local bridge, registered animations, and sandboxed plugins
+  if (state.runtimeIntegrations) {
+    void state.runtimeIntegrations.syncConfig(newConfig);
   }
 }
 
