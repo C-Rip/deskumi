@@ -90,15 +90,31 @@ cubo llegan al escritorio. Funciona en GNOME y KDE.
 | T-504 | Pasada completa de [QA.md](QA.md) en los entornos objetivo                      | T-501, T-502 | ✅     |
 | T-505 | Presupuesto de rendimiento verificado (ver abajo)                               | T-504        | ✅     |
 
-## F6 — Post v0.1 (ideas, sin compromiso)
+## F6 — Plugins, Habla y Puente Local (Linux-first)
 
-- **Panel de Ajustes con previsualización integrada:** mover la previsualización 3D del personaje directamente a un viewport dentro de la propia ventana de configuración para pausar la ventana de escritorio transparente durante la configuración y evitar contención en WebKitGTK.
+**Demo:** comportamientos scriptables aislados en Workers, habla con _lip-sync_ y burbuja de diálogo, y conexión bidireccional instantánea por WebSocket local (`127.0.0.1`) para IA y bancos de voces externos.
+
+| ID    | Tarea                                                                                           | Depende de   | Paralelo                | Estado |
+| ----- | ----------------------------------------------------------------------------------------------- | ------------ | ----------------------- | ------ |
+| T-600 | **Spike**: protocolo `plugin://` + CSP, `Channel` binario, `AudioContext`, delta WS → ADR-0006  | —            | con T-601               | 🟦     |
+| T-601 | Refactor puro: dividir `src/main.ts` y `src/settings/SettingsPanel.ts` (< 300 líneas/archivo)   | —            | con T-600               | 🟦     |
+| T-602 | Contrato `AvatarCommand`/`AvatarEvent` + `AvatarController` + wake locks en `PowerSave`         | T-600, T-601 | —                       | ⬜     |
+| T-603 | Habla y _lip-sync_: `AudioOutput` + `LipSyncController` + `SpeechController`                    | T-602        | con T-604, T-605, T-606 | ⬜     |
+| T-604 | `SpeechBubbleOverlay` (`pointer-events: none`, anclado a `head`, sin resize GTK en vivo)        | T-602        | con T-603, T-605, T-606 | ⬜     |
+| T-605 | **Puente WebSocket** `local_bridge.rs` (`127.0.0.1:0`, `bridge.json`, `Origin`/token) + Python  | T-602        | con T-603, T-604, T-606 | ⬜     |
+| T-606 | Host de plugins (`plugins.rs` `plugin://`, `PluginHost`, registro `.vrma`, `csp`/`devCsp`)      | T-602        | con T-603, T-604, T-605 | ⬜     |
+| T-607 | Ajustes: secciones Puente y Plugins (`PlatformCaps` Linux-only, consentimiento de permisos)     | T-605, T-606 | —                       | ⬜     |
+| T-608 | Plugin de ejemplo + `docs/PLUGINS.md` + esquemas JSON + `docs/QA.md` + skill `plugin-authoring` | T-603..T-607 | —                       | ⬜     |
+| T-609 | `windowFocus` (`appId` + `title` por scope): `CursorBridge` D-Bus + KWin + extensión GNOME      | T-605        | —                       | ⬜     |
+
+## Backlog futuro (prioridad media / sin compromiso)
+
+- **Panel de Ajustes con previsualización integrada:** ✅ completado en `v0.2.0` (`PreviewStage.ts`).
+- **Interacción con ventanas (puente por compositor):** ✅ KDE Plasma (KWin 6) y GNOME Shell (Mutter) en `v0.2.0`–`v0.2.1`. ⬜ Pendiente con **prioridad media**: compositores `wlroots` (Sway/Hyprland) y paridad Win32 en Windows (`L-04` en [LIMITATIONS.md](LIMITATIONS.md)).
+- Animaciones direccionales al mover/arrastrar el avatar (izquierda, derecha, arriba y diagonales arriba-izquierda / arriba-derecha).
 - Personajes 2D: sprites animados (PixiJS o Three.js planos). Live2D requiere revisar licencia del SDK → ADR.
 - Varios personajes a la vez / múltiples monitores.
 - Overlays para streamers (modo ventana capturable por OBS con fondo chroma).
-- Interacción con ventanas (sentarse sobre la barra de título) — X11/Windows y puente por compositor en Wayland (KWin, extensión GNOME Shell, wlroots).
-- Animaciones direccionales al mover/arrastrar el avatar (izquierda, derecha, arriba y diagonales arriba-izquierda / arriba-derecha).
-- Sistema de "comportamientos" scriptables / plugins.
 - Lip-sync con micrófono, tracking facial con webcam (MediaPipe).
 - Flatpak / Flathub.
 
